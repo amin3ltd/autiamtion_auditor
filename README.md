@@ -8,6 +8,10 @@ The Automaton Auditor is a hierarchical multi-agent system inspired by the "Digi
 
 ## Architecture Decision Rationale
 
+![High-Level AI Agentic System Architecture](high-level AI agentic system architecture.png)
+
+![LangChain Product Ecosystem](langchain product ecosystem.png)
+
 ### Why Pydantic for State Typing?
 
 We chose Pydantic (BaseModel) over plain Python dictionaries for several critical reasons:
