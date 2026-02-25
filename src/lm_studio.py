@@ -91,19 +91,19 @@ def create_llm_from_env():
 # Example usage
 if __name__ == "__main__":
     # Test connection to LM Studio
-    print(\"Testing LM Studio connection...\")
-    print(\"Make sure LM Studio is running and a model is loaded!\")
-    print(\"Start the server in LM Studio, then run this script.\\n\")
+    print("Testing LM Studio connection...")
+    print("Make sure LM Studio is running and a model is loaded!")
+    print("Start the server in LM Studio, then run this script.\n")
     
     try:
         # Try to create an LLM - will fail if LM Studio isn't running
-        llm = create_lm_studio_llm(\"gemma-3-4b\")
-        response = llm.invoke(\"Hello, how are you?\")
-        print(f\"LM Studio connected successfully!\")
-        print(f\"Response: {response.content}\")
+        llm = create_lm_studio_llm("gemma-3-4b")
+        response = llm.invoke("Hello, how are you?")
+        print(f"LM Studio connected successfully!")
+        print(f"Response: {response.content}")
     except Exception as e:
-        print(f\"Could not connect to LM Studio: {e}\")
-        print(\"\\nTo fix:\")
-        print(\"1. Open LM Studio\")
-        print(\"2. Search and download a model (e.g., gemma-3-4b)\")
-        print(\"3. Click 'Start Server' in LM Studio\")
+        print(f"Could not connect to LM Studio: {e}")
+        print("\nTo fix:")
+        print("1. Open LM Studio")
+        print("2. Search and download a model (e.g., gemma-3-4b)")
+        print("3. Click 'Start Server' in LM Studio")

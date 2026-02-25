@@ -194,6 +194,30 @@ autiamtion_auditor/
 - `Pillow` - Image extraction (optional)
 - `python-dotenv` - Environment variables
 
+## Test Results
+
+The Automaton Auditor has been tested with LM Studio (gemma-3-4b model). The system successfully:
+
+1. **Collects Evidence** via detectives (RepoInvestigator, DocAnalyst, VisionInspector)
+2. **Runs Judges** in parallel (Prosecutor, Defense, TechLead)
+3. **Synthesizes Verdict** via Chief Justice
+
+### Sample Test Output
+
+```
+=== JUDGE OPINIONS ===
+- Prosecutor: Graph Orchestration - Score: 2/5
+  "This evidence presents several concerning aspects..."
+
+- Defense: Graph Orchestration - Score: 4/5  
+  "This evidence demonstrates a surprisingly sophisticated attempt..."
+
+- Tech Lead: Graph Orchestration - Score: 3/5
+  "Does it actually work? The confidence score of 0.8..."
+```
+
+This demonstrates the **Dialectical Synthesis** - three distinct perspectives evaluating the same evidence!
+
 ## LangSmith Integration
 
 Set `LANGCHAIN_TRACING_V2=true` and configure `LANGCHAIN_API_KEY` to enable LangSmith tracing for debugging complex multi-agent flows.

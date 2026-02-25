@@ -78,6 +78,16 @@ def create_auditor_graph(
         create_evidence_aggregator_node,
     )
     
+    from .nodes.judges import (
+        create_prosecutor_node,
+        create_defense_node,
+        create_tech_lead_node,
+    )
+    
+    from .nodes.justice import (
+        create_chief_justice_node,
+    )
+    
     # Create the graph
     workflow = StateGraph(AgentState)
     
@@ -126,29 +136,27 @@ def create_auditor_graph(
     # to handle cases where evidence collection fails
     
     # ==========================================================================
-    # PHASE 3 & 4: Judges and ChiefJustice (Placeholder)
+    # PHASE 3 & 4: Judges and ChiefJustice
     # ==========================================================================
-    # These would be added in the final submission:
-    #
-    # workflow.add_node("prosecutor", create_prosecutor_node(llm))
-    # workflow.add_node("defense", create_defense_node(llm))
-    # workflow.add_node("tech_lead", create_tech_lead_node(llm))
-    # workflow.add_node("chief_justice", create_chief_justice_node(llm))
-    #
-    # # Judges fan-out
-    # workflow.add_edge("evidence_aggregator", "prosecutor")
-    # workflow.add_edge("evidence_aggregator", "defense")
-    # workflow.add_edge("evidence_aggregator", "tech_lead")
-    #
-    # # Judges fan-in
-    # workflow.add_edge("prosecutor", "chief_justice")
-    # workflow.add_edge("defense", "chief_justice")
-    # workflow.add_edge("tech_lead", "chief_justice")
-    #
-    # workflow.add_edge("chief_justice", END)
     
-    # For interim: end after evidence aggregation
-    workflow.add_edge("evidence_aggregator", END)
+    # Add judge nodes
+    workflow.add_node("prosecutor", create_prosecutor_node(llm))
+    workflow.add_node("defense", create_defense_node(llm))
+    workflow.add_node("tech_lead", create_tech_lead_node(llm))
+    workflow.add_node("chief_justice", create_chief_justice_node(llm))
+    
+    # Judges fan-out: all three judges analyze evidence in parallel
+    workflow.add_edge("evidence_aggregator", "prosecutor")
+    workflow.add_edge("evidence_aggregator", "defense")
+    workflow.add_edge("evidence_aggregator", "tech_lead")
+    
+    # Judges fan-in: all judges must complete before Chief Justice
+    workflow.add_edge("prosecutor", "chief_justice")
+    workflow.add_edge("defense", "chief_justice")
+    workflow.add_edge("tech_lead", "chief_justice")
+    
+    # Final output
+    workflow.add_edge("chief_justice", END)
     
     return workflow.compile()
 
