@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calming Starfield</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #0a0a0f;
+            cursor: none;
+        }
+
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        .cursor {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease-out, width 0.2s, height 0.2s;
+            z-index: 1000;
+            mix-blend-mode: difference;
+        }
+
+        .cursor::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            background: white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .title {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.3);
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            z-index: 100;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="starfield"></canvas>
+    <div class="cursor" id="cursor"></div>
+    <div class="title">move through the cosmos</div>
+
+    <script>
+        const canvas = document.getElementById('starfield');
+        const ctx = canvas.getContext('2d');
+        const cursor = document.getElementById('cursor');
+
+        let width, height;
+        let stars = [];
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+        let velocityX = 0;
+        let velocityY = 0;
+
+        const STAR_COUNT = 400;
+        const STAR_LAYERS = 3;
+        const FRICTION = 0.95;
+        const SENSITIVITY = 0.08;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        class Star {
+            constructor() {
+                this.reset();
+                this.z = Math.random();
+            }
+
+            reset() {
+                this.x = (Math.random() - 0.5) * width * 3;
+                this.y = (Math.random() - 0.5) * height * 3;
+                this.z = Math.random();
+                this.baseSize = Math.random() * 1.5 + 0.5;
+                this.twinkleSpeed = Math.random() * 0.02 + 0.005;
+                this.twinkleOffset = Math.random() * Math.PI * 2;
+                this.layer = Math.floor(Math.random() * STAR_LAYERS);
+                this.color = this.getStarColor(this.layer);
+            }
+
+            getStarColor(layer) {
+                const colors = [
+                    `rgba(255, 255, 255, ${0.3 + Math.random() * 0.5})`,
+                    `rgba(200, 220, 255, ${0.4 + Math.random() * 0.4})`,
+                    `rgba(255, 240, 220, ${0.5 + Math.random() * 0.3})`
+                ];
+                return colors[layer];
+            }
+
+            update() {
+                const parallax = 0.2 + this.layer * 0.3;
+                const dx = (mouseX - width / 2) * parallax * this.z;
+                const dy = (mouseY - height / 2) * parallax * this.z;
+
+                this.x -= dx * SENSITIVITY;
+                this.y -= dy * SENSITIVITY;
+
+                const wrapWidth = width * 2;
+                const wrapHeight = height * 2;
+                
+                if (this.x < -wrapWidth / 2) this.x += wrapWidth;
+                if (this.x > wrapWidth / 2) this.x -= wrapWidth;
+                if (this.y < -wrapHeight / 2) this.y += wrapHeight;
+                if (this.y > wrapHeight / 2) this.y -= wrapHeight;
+
+                this.twinkle = Math.sin(Date.now() * this.twinkleSpeed + this.twinkleOffset);
+            }
+
+            draw() {
+                const centerX = width / 2 + this.x - (mouseX - width / 2) * this.z * 0.5;
+                const centerY = height / 2 + this.y - (mouseY - height / 2) * this.z * 0.5;
+
+                const size = this.baseSize * (1 + this.twinkle * 0.3) * (1 - this.z * 0.3);
+                const alpha = (0.3 + this.twinkle * 0.2) * (1 - this.z * 0.5);
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color.replace(/[\d.]+\)$/, `${alpha})`);
+                ctx.fill();
+
+                if (this.layer === 0 && size > 1) {
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, size * 2, 0, Math.PI * 2);
+                    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, size * 2);
+                    gradient.addColorStop(0, this.color.replace(/[\d.]+\)$/, '0.3)'));
+                    gradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                }
+            }
+        }
+
+        function init() {
+            resize();
+            stars = [];
+            for (let i = 0; i < STAR_COUNT; i++) {
+                stars.push(new Star());
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+            ctx.fillRect(0, 0, width, height);
+
+            velocityX += (targetX - mouseX) * 0.001;
+            velocityY += (targetY - mouseY) * 0.001;
+            
+            mouseX += velocityX;
+            mouseY += velocityY;
+            
+            velocityX *= FRICTION;
+            velocityY *= FRICTION;
+
+            stars.sort((a, b) => a.z - b.z);
+            
+            for (const star of stars) {
+                star.update();
+                star.draw();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            targetX = e.clientX;
+            targetY = e.clientY;
+            
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+        });
+
+        document.addEventListener('mousedown', () => {
+            cursor.style.width = '30px';
+            cursor.style.height = '30px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            cursor.style.width = '20px';
+            cursor.style.height = '20px';
+        });
+
+        window.addEventListener('resize', resize);
+
+        // Touch support
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            targetX = touch.clientX;
+            targetY = touch.clientY;
+        }, { passive: false });
+
+        init();
+        animate();
+    </script>
+</body>
+</html>
