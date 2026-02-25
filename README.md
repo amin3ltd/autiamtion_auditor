@@ -6,6 +6,15 @@ A deep LangGraph swarm for autonomous governance and quality assurance of AI-gen
 
 The Automaton Auditor is a hierarchical multi-agent system inspired by the "Digital Courtroom" concept. It orchestrates specialized detective agents to collect forensic evidence, judge agents with distinct personas to render verdicts, and a Chief Justice to synthesize final decisions.
 
+## Interactive Starfield Visualization
+
+A calming interactive starfield visualization is included in [`starfield.html`](starfield.html). Open this file in a web browser to experience:
+
+- **Multi-layer parallax stars** - 400 stars across 3 depth layers
+- **Mouse gesture controls** - Stars drift smoothly following your cursor movement
+- **Twinkling animation** - Gentle twinkling effect for a calming atmosphere
+- **Touch support** - Works on mobile devices with touch gestures
+
 ## Architecture Decision Rationale
 
 ![High-Level AI Agentic System Architecture](high-level AI agentic system architecture.png)
@@ -126,7 +135,7 @@ The ChiefJusticeNode will:
 ## Project Structure
 
 ```
-automaton_auditor/
+autiamtion_auditor/
 ├── src/
 │   ├── state.py          # Pydantic state definitions
 │   ├── graph.py          # LangGraph orchestration
@@ -136,6 +145,7 @@ automaton_auditor/
 │   └── nodes/
 │       ├── detectives.py  # Detective agents
 │       └── judges.py      # Judge agents (placeholder)
+├── starfield.html        # Interactive starfield visualization
 ├── pyproject.toml        # Dependencies
 ├── .env.example          # Environment variables
 └── README.md             # This file
@@ -159,7 +169,7 @@ automaton_auditor/
    from src.graph import run_auditor
    
    result = run_auditor(
-       repo_url="https://github.com/user/repo",
+       repo_url="https://github.com/amin3ltd/autiamtion_auditor",
        pdf_path="./report.pdf",
        rubric_dimensions=[...]
    )
