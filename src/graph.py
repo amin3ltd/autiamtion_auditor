@@ -110,8 +110,19 @@ def create_auditor_graph(
         create_evidence_aggregator_node()
     )
     
-    # Note: Judges and ChiefJustice are placeholder for final submission
-    # They would be added in Phase 3/4
+    # ==========================================================================
+    # ERROR HANDLING NODES
+    # ==========================================================================
+    
+    # Error handler for failed evidence collection
+    def error_evidence_node(state: AgentState) -> AgentState:
+        """Handle case where evidence collection fails."""
+        return {
+            "evidences": {"error": []},
+            "opinions": []
+        }
+    
+    workflow.add_node("evidence_error", error_evidence_node)
     
     # Set entry point
     workflow.set_entry_point("context_builder")
@@ -123,6 +134,56 @@ def create_auditor_graph(
     workflow.add_edge("context_builder", "repo_investigator")
     workflow.add_edge("context_builder", "doc_analyst")
     workflow.add_edge("context_builder", "vision_inspector")
+    
+    # ==========================================================================
+    # CONDITIONAL ROUTING: Check if evidence was collected
+    # ==========================================================================
+    
+    def check_evidence(state: AgentState) -> str:
+        """Check if evidence was successfully collected."""
+        evidences = state.get("evidences", {})
+        
+        # Check if any detective collected evidence
+        has_evidence = any(
+            len(evidence_list) > 0 
+            for evidence_list in evidences.values()
+            if evidence_list
+        )
+        
+        if has_evidence:
+            return "continue"
+        return "error"
+    
+    # Add conditional edges from detectives to aggregator OR error handler
+    workflow.add_conditional_edges(
+        "repo_investigator",
+        check_evidence,
+        {
+            "continue": "evidence_aggregator",
+            "error": "evidence_error"
+        }
+    )
+    
+    workflow.add_conditional_edges(
+        "doc_analyst",
+        check_evidence,
+        {
+            "continue": "evidence_aggregator",
+            "error": "evidence_error"
+        }
+    )
+    
+    workflow.add_conditional_edges(
+        "vision_inspector",
+        check_evidence,
+        {
+            "continue": "evidence_aggregator",
+            "error": "evidence_error"
+        }
+    )
+    
+    # Error handler goes to aggregator
+    workflow.add_edge("evidence_error", "evidence_aggregator")
     
     # ==========================================================================
     # PHASE 2: Evidence Aggregation Fan-In

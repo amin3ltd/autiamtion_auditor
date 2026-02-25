@@ -177,13 +177,51 @@ autiamtion_auditor/
 4. Run the auditor:
    ```python
    from src.graph import run_auditor
+   from src.lm_studio import create_lm_studio_llm
    
-   # Using LM Studio
+   # Create LLM using LM Studio
+   llm = create_lm_studio_llm(model_name="gemma-3-4b")
+   
+   # Define rubric dimensions for evaluation
+   rubric_dimensions = [
+       {
+           "id": "git_forensic_analysis",
+           "name": "Git Forensic Analysis",
+           "target_artifact": "github_repo",
+           "forensic_instruction": "Run 'git log --oneline --reverse' and check commit progression"
+       },
+       {
+           "id": "state_management_rigor",
+           "name": "State Management Rigor",
+           "target_artifact": "github_repo",
+           "forensic_instruction": "Check for Pydantic models and Annotated reducers in state.py"
+       },
+       {
+           "id": "graph_orchestration",
+           "name": "Graph Orchestration",
+           "target_artifact": "github_repo",
+           "forensic_instruction": "Verify parallel fan-out/fan-in in graph.py"
+       },
+       {
+           "id": "safe_tool_engineering",
+           "name": "Safe Tool Engineering",
+           "target_artifact": "github_repo",
+           "forensic_instruction": "Check for tempfile usage and sandboxed git operations"
+       }
+   ]
+   
+   # Run the auditor
    result = run_auditor(
        repo_url="https://github.com/amin3ltd/autiamtion_auditor",
        pdf_path="./report.pdf",
-       rubric_dimensions=[...]
+       rubric_dimensions=rubric_dimensions,
+       llm=llm
    )
+   
+   # Access results
+   if result.get("final_report"):
+       print(f"Overall Score: {result['final_report'].overall_score}/5.0")
+       print(result['final_report'].executive_summary)
    ```
 
 ## Dependencies
