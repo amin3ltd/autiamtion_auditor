@@ -158,16 +158,27 @@ autiamtion_auditor/
    pip install -e .
    ```
 
-2. Copy `.env.example` to `.env` and add your API keys:
+2. (Optional) Using LM Studio for local models:
+   - Download LM Studio from https://lmstudio.ai/
+   - Load Gemma-3-4b (or any GGUF model)
+   - Start the local server (click "Start Server" in LM Studio)
+   - Default URL: http://localhost:1234/v1
+
+3. Copy `.env.example` to `.env` and configure:
    ```
+   # For OpenAI (requires API key)
    OPENAI_API_KEY=sk-...
-   ANTHROPIC_API_KEY=sk-...
+   
+   # For LM Studio (local, free)
+   LM_STUDIO_URL=http://localhost:1234/v1
+   LM_MODEL=gemma-3-4b
    ```
 
-3. Run the auditor:
+4. Run the auditor:
    ```python
    from src.graph import run_auditor
    
+   # Using LM Studio
    result = run_auditor(
        repo_url="https://github.com/amin3ltd/autiamtion_auditor",
        pdf_path="./report.pdf",
