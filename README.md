@@ -17,9 +17,9 @@ A calming interactive starfield visualization is included in [`starfield.html`](
 
 ## Architecture Decision Rationale
 
-![High-Level AI Agentic System Architecture](high-level AI agentic system architecture.png)
+![High-Level AI Agentic System Architecture](high-level%20AI%20agentic%20system%20architecture.png)
 
-![LangChain Product Ecosystem](langchain product ecosystem.png)
+![LangChain Product Ecosystem](langchain%20product%20ecosystem.png)
 
 ### Why Pydantic for State Typing?
 
