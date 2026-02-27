@@ -124,6 +124,60 @@ class AuditReport(BaseModel):
 # =============================================================================
 
 
+DEFAULT_RUBRIC = [
+    {
+        "id": "git_forensic_analysis",
+        "name": "Git Forensic Analysis",
+        "target_artifact": "github_repo"
+    },
+    {
+        "id": "state_management_rigor",
+        "name": "State Management Rigor",
+        "target_artifact": "github_repo"
+    },
+    {
+        "id": "graph_orchestration",
+        "name": "Graph Orchestration Architecture",
+        "target_artifact": "github_repo"
+    },
+    {
+        "id": "safe_tool_engineering",
+        "name": "Safe Tool Engineering",
+        "target_artifact": "github_repo"
+    },
+    {
+        "id": "structured_output_enforcement",
+        "name": "Structured Output Enforcement",
+        "target_artifact": "github_repo"
+    },
+    {
+        "id": "judicial_nuance",
+        "name": "Judicial Nuance and Dialectics",
+        "target_artifact": "github_repo"
+    },
+    {
+        "id": "chief_justice_synthesis",
+        "name": "Chief Justice Synthesis Engine",
+        "target_artifact": "github_repo"
+    },
+    {
+        "id": "theoretical_depth",
+        "name": "Theoretical Depth (Documentation)",
+        "target_artifact": "pdf_report"
+    },
+    {
+        "id": "report_accuracy",
+        "name": "Report Accuracy (Cross-Reference)",
+        "target_artifact": "pdf_report"
+    },
+    {
+        "id": "swarm_visual",
+        "name": "Architectural Diagram Analysis",
+        "target_artifact": "pdf_images"
+    }
+]
+
+
 class AgentState(TypedDict):
     """
     The central state that flows through the entire LangGraph.
@@ -170,7 +224,7 @@ class AgentState(TypedDict):
 def create_initial_state(
     repo_url: str,
     pdf_path: str,
-    rubric_dimensions: List[Dict]
+    rubric_dimensions: Optional[List[Dict]] = None
 ) -> AgentState:
     """
     Factory function to create the initial state for the graph.
@@ -178,11 +232,15 @@ def create_initial_state(
     Args:
         repo_url: GitHub repository URL to audit
         pdf_path: Path to the PDF report
-        rubric_dimensions: The grading rubric as a list of dimension dicts
+        rubric_dimensions: The grading rubric as a list of dimension dicts.
+                         Defaults to DEFAULT_RUBRIC if not provided.
     
     Returns:
         A properly typed initial AgentState
     """
+    if rubric_dimensions is None:
+        rubric_dimensions = DEFAULT_RUBRIC
+    
     return {
         "repo_url": repo_url,
         "pdf_path": pdf_path,

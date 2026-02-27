@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automaton Auditor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .glass { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px); }
+        .glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen text-gray-100">
+    <!-- Header -->
+    <nav class="glass border-b border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-gavel text-3xl text-blue-400"></i>
+                <div>
+                    <h1 class="text-2xl font-bold text-blue-400">Automaton Auditor</h1>
+                    <p class="text-xs text-gray-400">Digital Courtroom for Code Quality</p>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <button onclick="showSection('audit')" class="px-4 py-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-play mr-2"></i>New Audit
+                </button>
+                <button onclick="showSection('providers')" class="px-4 py-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-cog mr-2"></i>Providers
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Hero Section -->
+        <div class="text-center mb-12">
+            <h2 class="text-4xl font-bold mb-4">⚖️ Automated Code Quality Audits</h2>
+            <p class="text-xl text-gray-400 max-w-2xl mx-auto">
+                A hierarchical multi-agent system that audits GitHub repositories using a Digital Courtroom architecture.
+            </p>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid lg:grid-cols-3 gap-8">
+            <!-- Left Panel - Start Audit -->
+            <div class="lg:col-span-1">
+                <div class="glass rounded-2xl p-6 glow">
+                    <h3 class="text-xl font-bold mb-4 text-blue-400">
+                        <i class="fas fa-rocket mr-2"></i>Start Audit
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Repository URL</label>
+                            <input type="text" id="repoUrl" 
+                                   placeholder="https://github.com/user/repo"
+                                   class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 focus:border-blue-500 focus:outline-none">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">PDF Report Path</label>
+                            <input type="text" id="pdfPath" value="./report.pdf"
+                                   class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 focus:border-blue-500 focus:outline-none">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">LLM Provider</label>
+                            <select id="provider" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 focus:border-blue-500 focus:outline-none">
+                            </select>
+                        </div>
+                        
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="demoMode" checked class="w-4 h-4">
+                            <span class="text-sm text-gray-300">Demo Mode (no LLM required)</span>
+                        </label>
+                        
+                        <button onclick="startAudit()" 
+                                class="w-full bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded-lg py-3 font-bold transition glow">
+                            <i class="fas fa-play mr-2"></i>Start Audit
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Providers Status -->
+                <div class="glass rounded-2xl p-6 mt-6">
+                    <h3 class="text-lg font-bold mb-3 text-blue-400">
+                        <i class="fas fa-server mr-2"></i>Providers
+                    </h3>
+                    <div id="providerStatus" class="text-sm text-gray-400">
+                        Loading...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Results -->
+            <div class="lg:col-span-2">
+                <!-- Tabs -->
+                <div class="flex gap-2 mb-4">
+                    <button onclick="showTab('history')" id="tab-history" 
+                            class="px-4 py-2 rounded-lg bg-blue-600 font-semibold">
+                        <i class="fas fa-history mr-2"></i>History
+                    </button>
+                    <button onclick="showTab('result')" id="tab-result" 
+                            class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600">
+                        <i class="fas fa-chart-bar mr-2"></i>Results
+                    </button>
+                </div>
+
+                <!-- History Panel -->
+                <div id="panel-history">
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-xl font-bold mb-4 text-blue-400">Recent Audits</h3>
+                        <div id="auditList" class="space-y-3">
+                            <p class="text-gray-400">No audits yet. Start your first audit!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Result Panel -->
+                <div id="panel-result" class="hidden">
+                    <div class="glass rounded-2xl p-6">
+                        <div id="resultContent">
+                            <p class="text-gray-400 text-center py-8">
+                                Run an audit to see results here
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loadingModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50">
+        <div class="glass rounded-2xl p-8 text-center">
+            <i class="fas fa-spinner fa-spin text-4xl text-blue-400 mb-4"></i>
+            <h3 class="text-xl font-bold">Running Audit...</h3>
+            <p class="text-gray-400 mt-2">Please wait while we analyze the repository</p>
+        </div>
+    </div>
+
+    <script>
+        const API = '';
+        let currentAuditId = null;
+
+        // Load providers on start
+        async function loadProviders() {
+            try {
+                const res = await fetch(API + '/api/providers');
+                const data = await res.json();
+                
+                const select = document.getElementById('provider');
+                select.innerHTML = data.providers.map(p => 
+                    `<option value="${p.id}">${p.name} ${p.available ? '✅' : '❌'}</option>`
+                ).join('');
+                
+                const status = document.getElementById('providerStatus');
+                const available = data.providers.filter(p => p.available).length;
+                status.innerHTML = `${available} of ${data.providers.length} providers available`;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Load audits
+        async function loadAudits() {
+            try {
+                const res = await fetch(API + '/api/audit');
+                const data = await res.json();
+                
+                const list = document.getElementById('auditList');
+                if (data.audits.length === 0) {
+                    list.innerHTML = '<p class="text-gray-400">No audits yet.</p>';
+                    return;
+                }
+                
+                list.innerHTML = data.audits.map(a => `
+                    <div class="bg-gray-800 rounded-lg p-4 flex justify-between items-center cursor-pointer hover:bg-gray-700" 
+                         onclick="viewAudit('${a.audit_id}')">
+                        <div>
+                            <div class="font-semibold">${a.repo_url}</div>
+                            <div class="text-sm text-gray-400">${a.created_at}</div>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-sm ${
+                            a.status === 'completed' ? 'bg-green-600' : 
+                            a.status === 'running' ? 'bg-blue-600' :
+                            a.status === 'failed' ? 'bg-red-600' : 'bg-yellow-600'
+                        }">${a.status}</span>
+                    </div>
+                `).reverse().join('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Start audit
+        async function startAudit() {
+            const repoUrl = document.getElementById('repoUrl').value;
+            const pdfPath = document.getElementById('pdfPath').value;
+            const provider = document.getElementById('provider').value;
+            const demoMode = document.getElementById('demoMode').checked;
+
+            if (!repoUrl) {
+                alert('Please enter a repository URL');
+                return;
+            }
+
+            document.getElementById('loadingModal').classList.remove('hidden');
+            document.getElementById('loadingModal').classList.add('flex');
+
+            try {
+                const res = await fetch(API + '/api/audit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        repo_url: repoUrl,
+                        pdf_path: pdfPath,
+                        provider: provider,
+                        demo_mode: demoMode
+                    })
+                });
+                
+                const data = await res.json();
+                currentAuditId = data.audit_id;
+                
+                // Poll for results
+                for (let i = 0; i < 30; i++) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    const statusRes = await fetch(API + '/api/audit/' + data.audit_id);
+                    const status = await statusRes.json();
+                    
+                    if (status.status === 'completed') {
+                        showResult(status);
+                        break;
+                    } else if (status.status === 'failed') {
+                        alert('Audit failed: ' + status.error);
+                        break;
+                    }
+                }
+                
+                loadAudits();
+            } catch (e) {
+                alert('Error: ' + e);
+            } finally {
+                document.getElementById('loadingModal').classList.add('hidden');
+                document.getElementById('loadingModal').classList.remove('flex');
+            }
+        }
+
+        // View audit result
+        async function viewAudit(auditId) {
+            try {
+                const res = await fetch(API + '/api/audit/' + auditId);
+                const data = await res.json();
+                showResult(data);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Show result
+        function showResult(data) {
+            showTab('result');
+            
+            if (data.status !== 'completed') {
+                document.getElementById('resultContent').innerHTML = 
+                    `<p class="text-yellow-400">Status: ${data.status}</p>`;
+                return;
+            }
+            
+            const report = data.report;
+            const criteria = report.criteria || [];
+            
+            let html = `
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold">${report.overall_score}</div>
+                        <div class="text-sm text-blue-200">Overall Score</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-green-500 to-green-700 rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold">${criteria.filter(c => c.final_score >= 4).length}</div>
+                        <div class="text-sm text-green-200">Excellent</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold">${criteria.length}</div>
+                        <div class="text-sm text-purple-200">Criteria</div>
+                    </div>
+                </div>
+                
+                <h4 class="font-bold mb-3 text-blue-400">Score Breakdown</h4>
+                <div class="space-y-2 mb-6">
+                    ${criteria.map(c => `
+                        <div class="bg-gray-800 rounded-lg p-3 flex justify-between items-center">
+                            <span>${c.dimension_name}</span>
+                            <span class="px-3 py-1 rounded-full text-sm ${
+                                c.final_score >= 4 ? 'bg-green-600' :
+                                c.final_score >= 3 ? 'bg-yellow-600' : 'bg-red-600'
+                            }">${c.final_score}/5</span>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="flex gap-2 mb-4">
+                    <a href="${API}/api/audit/${data.audit_id}/export/json" 
+                       class="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">
+                        <i class="fas fa-download mr-2"></i>JSON
+                    </a>
+                    <a href="${API}/api/audit/${data.audit_id}/export/markdown" 
+                       class="px-4 py-2 bg-green-600 rounded-lg hover:bg-green-700">
+                        <i class="fas fa-file-alt mr-2"></i>Markdown
+                    </a>
+                    <a href="${API}/api/audit/${data.audit_id}/export/html" 
+                       class="px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-700">
+                        <i class="fas fa-code mr-2"></i>HTML
+                    </a>
+                </div>
+                
+                <h4 class="font-bold mb-2 text-blue-400">Executive Summary</h4>
+                <p class="text-gray-300 bg-gray-800 rounded-lg p-4">${report.executive_summary}</p>
+            `;
+            
+            document.getElementById('resultContent').innerHTML = html;
+        }
+
+        // Tab switching
+        function showTab(tab) {
+            document.getElementById('panel-history').classList.toggle('hidden', tab !== 'history');
+            document.getElementById('panel-result').classList.toggle('hidden', tab !== 'result');
+            document.getElementById('tab-history').classList.toggle('bg-blue-600', tab === 'history');
+            document.getElementById('tab-history').classList.toggle('bg-gray-700', tab !== 'history');
+            document.getElementById('tab-result').classList.toggle('bg-blue-600', tab === 'result');
+            document.getElementById('tab-result').classList.toggle('bg-gray-700', tab !== 'result');
+        }
+
+        // Initialize
+        loadProviders();
+        loadAudits();
+    </script>
+</body>
+</html>

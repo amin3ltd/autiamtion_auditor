@@ -137,18 +137,30 @@ The ChiefJusticeNode will:
 ```
 autiamtion_auditor/
 ├── src/
-│   ├── state.py          # Pydantic state definitions
-│   ├── graph.py          # LangGraph orchestration
+│   ├── state.py              # Pydantic state definitions
+│   ├── graph.py             # LangGraph orchestration
+│   ├── llm_providers.py     # Multi-provider LLM abstraction
+│   ├── lm_studio.py         # LM Studio integration
 │   ├── tools/
-│   │   ├── repo_tools.py  # Git & AST analysis
-│   │   └── doc_tools.py   # PDF parsing
+│   │   ├── repo_tools.py    # Git & AST analysis
+│   │   └── doc_tools.py     # PDF parsing
 │   └── nodes/
-│       ├── detectives.py  # Detective agents
-│       └── judges.py      # Judge agents (placeholder)
-├── starfield.html        # Interactive starfield visualization
-├── pyproject.toml        # Dependencies
-├── .env.example          # Environment variables
-└── README.md             # This file
+│       ├── detectives.py     # Detective agents
+│       ├── judges.py         # Judge agents
+│       └── justice.py        # Chief Justice synthesis
+├── dashboard/               # Web dashboard
+│   ├── main.py              # FastAPI server
+│   ├── app.py               # Streamlit dashboard
+│   └── export_utils.py      # Report export utilities
+├── tests/                   # Test suite
+│   ├── test_state.py
+│   ├── test_llm_providers.py
+│   ├── test_integration.py
+│   └── test_export.py
+├── starfield.html           # Interactive starfield visualization
+├── pyproject.toml           # Dependencies
+├── .env.example             # Environment variables
+└── README.md                # This file
 ```
 
 ## Setup
@@ -231,6 +243,73 @@ autiamtion_auditor/
 - `pypdf` - PDF parsing
 - `Pillow` - Image extraction (optional)
 - `python-dotenv` - Environment variables
+- `fastapi` - Web dashboard API
+- `uvicorn` - ASGI server
+- `streamlit` - Dashboard UI
+- `jinja2` - Template rendering
+
+## LLM Providers
+
+The Automaton Auditor supports multiple LLM providers through the [`src/llm_providers.py`](src/llm_providers.py) module:
+
+| Provider | Type | API Key Required | Vision Support |
+|----------|------|------------------|----------------|
+| LM Studio | Local | No | No |
+| Ollama | Local | No | No |
+| OpenAI | Cloud | Yes | Yes |
+| Anthropic (Claude) | Cloud | Yes | Yes |
+| Google Gemini | Cloud | Yes | Yes |
+| Azure OpenAI | Cloud | Yes | Yes |
+| Cohere | Cloud | Yes | No |
+| Hugging Face | Cloud | Yes | No |
+
+### Using LLM Providers
+
+```python
+from src.llm_providers import create_llm, LLMProvider
+
+# Use LM Studio (local)
+llm = create_llm(
+    LLMProvider.LM_STUDIO,
+    model="llama3.2:latest",
+    base_url="http://localhost:1234/v1"
+)
+
+# Use OpenAI
+llm = create_llm(
+    LLMProvider.OPENAI,
+    model="gpt-4o",
+    api_key="sk-..."
+)
+
+# Auto-detect from environment
+llm = load_from_env()
+```
+
+## Web Dashboard
+
+A web dashboard is available for running audits and viewing results:
+
+### FastAPI Dashboard
+
+```bash
+python dashboard/main.py
+```
+
+Access at: http://localhost:8000
+
+### Streamlit Dashboard
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Features:
+- Provider selection and health checks
+- Rubric dimension configuration
+- Audit execution with progress tracking
+- Results visualization
+- Report export (Markdown, JSON, HTML, Text)
 
 ## Test Results
 
