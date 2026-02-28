@@ -15,122 +15,36 @@ A calming interactive starfield visualization is included in [`starfield.html`](
 - **Twinkling animation** - Gentle twinkling effect for a calming atmosphere
 - **Touch support** - Works on mobile devices with touch gestures
 
-## Architecture Decision Rationale
+## Architecture
 
 ![High-Level AI Agentic System Architecture](high-level%20AI%20agentic%20system%20architecture.png)
 
 ![LangChain Product Ecosystem](langchain%20product%20ecosystem.png)
 
-### Why Pydantic for State Typing?
+### Digital Courtroom Architecture
 
-We chose Pydantic (BaseModel) over plain Python dictionaries for several critical reasons:
+The system implements a "Digital Courtroom" with:
 
-1. **Runtime Validation**: Pydantic automatically validates data at runtime. When evidence flows through the graph, we guarantee type correctness without manual validation at every step.
+1. **Detective Layer** (Fan-Out)
+   - **RepoInvestigator**: Analyzes Git history, state management, graph orchestration
+   - **DocAnalyst**: Evaluates PDF reports for theoretical depth and accuracy
+   - **VisionInspector**: Analyzes architecture diagrams (requires vision LLM)
 
-2. **IDE Support**: With Pydantic models, IDEs provide autocomplete, type checking, and refactoring support. This is crucial for a complex multi-agent system where state structures can become intricate.
+2. **Judicial Layer** (Fan-Out)
+   - **Prosecutor**: Critical lens - looks for flaws, security issues
+   - **Defense**: Optimistic lens - rewards effort and intent
+   - **TechLead**: Pragmatic lens - evaluates architectural soundness
 
-3. **Schema Documentation**: The Pydantic models serve as self-documenting schemas. `Evidence.goal`, `JudicialOpinion.score`, etc. make the data structure immediately understandable.
+3. **Chief Justice** (Fan-In)
+   - Deterministic conflict resolution
+   - Security override rules
+   - Dissent summarization
 
-4. **Serialization**: Pydantic models serialize to JSON effortlessly, which is essential for:
-   - LangSmith tracing
-   - Debugging state at any point
-   - Storing audit reports
+### State Management
 
-**Trade-off Considered**: We initially considered TypedDict for better TypeScript-like static typing. However, TypedDict only provides structural typing at static analysis time. Pydantic's runtime validation was more important for our use case where data flows through multiple LLM calls.
-
-### Why AST Parsing for Forensic Analysis?
-
-We use Python's `ast` module instead of regex or simple text matching for several reasons:
-
-1. **Structural Understanding**: AST parsing understands Python's actual syntax structure. We can distinguish between a `StateGraph` instantiation vs. a string containing "StateGraph".
-
-2. **Robustness**: Regex is brittle. Code formatting, comments, or string literals can break regex patterns. AST parsing is immune to such issues.
-
-3. **Precision**: With AST, we can extract:
-   - Exact class inheritance (`BaseModel`, `TypedDict`)
-   - Function call arguments and their values
-   - Import statements
-   - Decorator applications
-
-4. **Future-Proof**: AST parsing will work regardless of code formatting changes, as long as the Python syntax remains valid.
-
-**Trade-off Considered**: AST parsing requires the target code to be syntactically valid Python. For code with syntax errors, we fall back to text-based analysis.
-
-### Why Sandboxing for Git Operations?
-
-Security is paramount when cloning and analyzing unknown repositories:
-
-1. **Isolation**: Using `tempfile.TemporaryDirectory()` ensures the cloned repository never touches the main filesystem.
-
-2. **Cleanup**: Temporary directories are automatically cleaned up, even if the analysis crashes.
-
-3. **No Auth Leaks**: We never store credentials in the cloned repository.
-
-**Trade-off Considered**: Sandboxing adds overhead. For the interim submission, we accept this trade-off for security.
-
-## Gap Analysis and Forward Plan
-
-### Known Gaps (Interim Submission)
-
-| Gap | Description | Priority |
-|-----|-------------|----------|
-| Judges Not Implemented | Only detective layer is functional | High |
-| Chief Justice Missing | Synthesis engine not yet built | High |
-| VisionInspector Placeholder | Diagram analysis requires vision LLM | Medium |
-| Cross-Reference Incomplete | Claim verification needs repo access | Medium |
-| No Retry Logic | Failed nodes don't retry | Low |
-
-### Forward Plan: Judicial Layer
-
-The judicial layer implements the "Dialectical Synthesis" model where three judges analyze the same evidence from different perspectives:
-
-#### Persona Differentiation
-
-1. **Prosecutor (Critical Lens)**
-   - System prompt emphasizes skepticism and finding flaws
-   - Charges "Orchestration Fraud" for missing parallelism
-   - Charges "Hallucination Liability" for unvalidated outputs
-   - Always argues for lower scores when evidence is weak
-
-2. **Defense Attorney (Optimistic Lens)**
-   - System prompt emphasizes effort and intent
-   - Looks for "Spirit of the Law" even when implementation is imperfect
-   - Argues for higher scores based on:
-     - Creative workarounds
-     - Deep understanding in documentation
-     - Commit history showing iteration
-
-3. **Tech Lead (Pragmatic Lens)**
-   - System prompt focuses on practical viability
-   - Evaluates:
-     - Code cleanliness
-     - Maintainability
-     - Actual functionality
-   - Acts as tie-breaker between Prosecution and Defense
-
-#### Conflict Resolution Strategy
-
-The Chief Justice uses deterministic rules (not LLM interpretation):
-
-1. **Rule of Security**: If Prosecutor identifies a confirmed security vulnerability, score is capped at 3 regardless of Defense arguments.
-
-2. **Rule of Evidence**: If Defense claims "Deep Metacognition" but Detective evidence shows the artifact is missing, Defense is overruled.
-
-3. **Rule of Functionality**: If Tech Lead confirms architecture is modular and workable, this carries highest weight for "Architecture" criterion.
-
-4. **Rule of Dissent**: If score variance > 2 (e.g., Prosecutor=1, Defense=5), explicit dissent summary required.
-
-### Forward Plan: Synthesis Engine
-
-The ChiefJusticeNode will:
-
-1. Collect all three JudicialOpinion objects per criterion
-2. Apply hardcoded deterministic rules for conflict resolution
-3. Generate structured Markdown report with:
-   - Executive Summary
-   - Criterion-by-criterion breakdown
-   - Dissent summaries where applicable
-   - Specific file-level remediation instructions
+The system uses **LangGraph reducers** for safe parallel execution:
+- `operator.ior` for dictionary merge (prevents evidence overwriting)
+- `operator.add` for list concatenation (preserves all judge opinions)
 
 ## Project Structure
 
@@ -138,17 +52,18 @@ The ChiefJusticeNode will:
 autiamtion_auditor/
 ├── src/
 │   ├── state.py              # Pydantic state definitions
-│   ├── graph.py             # LangGraph orchestration
-│   ├── llm_providers.py     # Multi-provider LLM abstraction
-│   ├── lm_studio.py         # LM Studio integration
+│   ├── graph.py              # LangGraph orchestration
+│   ├── llm_providers.py      # Multi-provider LLM abstraction
+│   ├── lm_studio.py          # LM Studio integration
+│   ├── langsmith_tracing.py  # LangSmith tracing integration
 │   ├── tools/
 │   │   ├── repo_tools.py    # Git & AST analysis
 │   │   └── doc_tools.py     # PDF parsing
 │   └── nodes/
 │       ├── detectives.py     # Detective agents
-│       ├── judges.py         # Judge agents
+│       ├── judges.py         # Judge agents (with structured output)
 │       └── justice.py        # Chief Justice synthesis
-├── dashboard/               # Web dashboard
+├── dashboard/                # Web dashboard
 │   ├── main.py              # FastAPI server
 │   ├── app.py               # Streamlit dashboard
 │   └── export_utils.py      # Report export utilities
@@ -157,34 +72,49 @@ autiamtion_auditor/
 │   ├── test_llm_providers.py
 │   ├── test_integration.py
 │   └── test_export.py
-├── starfield.html           # Interactive starfield visualization
-├── pyproject.toml           # Dependencies
-├── .env.example             # Environment variables
-└── README.md                # This file
+├── audit/                   # Audit reports
+│   ├── report_onself_generated/
+│   ├── report_onpeer_generated/
+│   └── report_bypeer_received/
+├── reports/                 # Evaluation reports
+│   ├── report.md
+│   └── rubric.json
+├── starfield.html          # Interactive starfield visualization
+├── Dockerfile               # Containerized deployment
+├── docker-compose.yml       # Docker orchestration
+├── pyproject.toml          # Dependencies
+├── .env.example            # Environment variables
+└── README.md               # This file
 ```
 
 ## Setup
 
+### Option 1: Local Development
+
 1. Install dependencies:
    ```bash
-   pip install -e .
+   pip install -r requirements.txt
    ```
 
-2. (Optional) Using LM Studio for local models:
-   - Download LM Studio from https://lmstudio.ai/
-   - Load Gemma-3-4b (or any GGUF model)
-   - Start the local server (click "Start Server" in LM Studio)
-   - Default URL: http://localhost:1234/v1
-
-3. Copy `.env.example` to `.env` and configure:
-   ```
+2. Copy `.env.example` to `.env` and configure:
+   ```bash
    # For OpenAI (requires API key)
    OPENAI_API_KEY=sk-...
    
    # For LM Studio (local, free)
    LM_STUDIO_URL=http://localhost:1234/v1
    LM_MODEL=gemma-3-4b
+   
+   # LangSmith Tracing (optional but recommended)
+   LANGCHAIN_TRACING_V2=true
+   LANGCHAIN_API_KEY=ls-...
+   LANGCHAIN_PROJECT=automaton-auditor
    ```
+
+3. (Optional) Using LM Studio for local models:
+   - Download LM Studio from https://lmstudio.ai/
+   - Load a model (e.g., llama3.2, gemma-3-4b)
+   - Start the local server (click "Start Server" in LM Studio)
 
 4. Run the auditor:
    ```python
@@ -213,18 +143,12 @@ autiamtion_auditor/
            "name": "Graph Orchestration",
            "target_artifact": "github_repo",
            "forensic_instruction": "Verify parallel fan-out/fan-in in graph.py"
-       },
-       {
-           "id": "safe_tool_engineering",
-           "name": "Safe Tool Engineering",
-           "target_artifact": "github_repo",
-           "forensic_instruction": "Check for tempfile usage and sandboxed git operations"
        }
    ]
    
    # Run the auditor
    result = run_auditor(
-       repo_url="https://github.com/amin3ltd/autiamtion_auditor",
+       repo_url="https://github.com/your-org/your-repo",
        pdf_path="./report.pdf",
        rubric_dimensions=rubric_dimensions,
        llm=llm
@@ -233,24 +157,25 @@ autiamtion_auditor/
    # Access results
    if result.get("final_report"):
        print(f"Overall Score: {result['final_report'].overall_score}/5.0")
-       print(result['final_report'].executive_summary)
    ```
 
-## Dependencies
+### Option 2: Docker
 
-- `langgraph` - Multi-agent orchestration
-- `pydantic` - State validation
-- `pypdf` - PDF parsing
-- `Pillow` - Image extraction (optional)
-- `python-dotenv` - Environment variables
-- `fastapi` - Web dashboard API
-- `uvicorn` - ASGI server
-- `streamlit` - Dashboard UI
-- `jinja2` - Template rendering
+1. Build the container:
+   ```bash
+   docker build -t automaton-auditor .
+   ```
+
+2. Run with Docker Compose:
+   ```bash
+   docker-compose up
+   ```
+
+3. Access the dashboard at http://localhost:8000
 
 ## LLM Providers
 
-The Automaton Auditor supports multiple LLM providers through the [`src/llm_providers.py`](src/llm_providers.py) module:
+The Automaton Auditor supports multiple LLM providers through [`src/llm_providers.py`](src/llm_providers.py):
 
 | Provider | Type | API Key Required | Vision Support |
 |----------|------|------------------|----------------|
@@ -282,9 +207,42 @@ llm = create_llm(
     api_key="sk-..."
 )
 
-# Auto-detect from environment
-llm = load_from_env()
+# Use Anthropic Claude
+llm = create_llm(
+    LLMProvider.ANTHROPIC,
+    model="claude-sonnet-4-20250514",
+    api_key="sk-..."
+)
 ```
+
+## LangSmith Integration
+
+LangSmith provides debugging, monitoring, and tracing for complex multi-agent flows.
+
+### Configuration
+
+Add to your `.env`:
+```bash
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=ls-...
+LANGCHAIN_PROJECT=automaton-auditor
+```
+
+### Viewing Traces
+
+After running an audit, visit https://smith.langchain.com to view:
+- All node executions
+- LLM calls and responses
+- State transitions
+- Performance metrics
+
+### LangSmith Module
+
+The [`src/langsmith_tracing.py`](src/langsmith_tracing.py) module provides:
+- `get_langsmith_config()` - Get configuration from environment
+- `is_langsmith_enabled()` - Check if tracing is enabled
+- `AuditRunTracker` - Track audit runs with metadata
+- `get_langsmith_dashboard_url()` - Get dashboard link
 
 ## Web Dashboard
 
@@ -311,33 +269,64 @@ Features:
 - Results visualization
 - Report export (Markdown, JSON, HTML, Text)
 
-## Test Results
+## Testing
 
-The Automaton Auditor has been tested with LM Studio (gemma-3-4b model). The system successfully:
+Run the test suite:
+```bash
+pytest tests/ -v
+```
 
-1. **Collects Evidence** via detectives (RepoInvestigator, DocAnalyst, VisionInspector)
-2. **Runs Judges** in parallel (Prosecutor, Defense, TechLead)
-3. **Synthesizes Verdict** via Chief Justice
+Run integration tests:
+```bash
+pytest tests/test_integration.py -v
+```
 
-### Sample Test Output
+### Test Results
+
+```
+======================= 18 passed in 0.26s =======================
+
+tests/test_integration.py::TestChiefJusticeSynthesis - 7 passed
+tests/test_integration.py::TestGraphCreation - 3 passed
+tests/test_integration.py::TestEndToEndWorkflow - 4 passed
+tests/test_integration.py::TestParallelExecution - 2 passed
+tests/test_integration.py::TestErrorHandling - 2 passed
+```
+
+## Dialectical Synthesis
+
+The system demonstrates true dialectical synthesis - three distinct perspectives evaluating the same evidence:
 
 ```
 === JUDGE OPINIONS ===
-- Prosecutor: Graph Orchestration - Score: 2/5
+- Prosecutor: Graph Orchestration - Score: 1/5
   "This evidence presents several concerning aspects..."
 
-- Defense: Graph Orchestration - Score: 4/5  
+- Defense: Graph Orchestration - Score: 5/5
   "This evidence demonstrates a surprisingly sophisticated attempt..."
 
-- Tech Lead: Graph Orchestration - Score: 3/5
+- Tech Lead: Graph Orchestration - Score: 5/5
   "Does it actually work? The confidence score of 0.8..."
 ```
 
-This demonstrates the **Dialectical Synthesis** - three distinct perspectives evaluating the same evidence!
+The Chief Justice resolves conflicts using deterministic rules:
+- **Security Override**: Security flaws cap score at 3
+- **Fact Supremacy**: Evidence overrules opinions
+- **Functionality Weight**: Tech Lead confirmation carries highest weight
+- **Dissent Requirement**: Variance > 2 requires explicit dissent
 
-## LangSmith Integration
+## Dependencies
 
-Set `LANGCHAIN_TRACING_V2=true` and configure `LANGCHAIN_API_KEY` to enable LangSmith tracing for debugging complex multi-agent flows.
+- `langgraph` - Multi-agent orchestration
+- `langchain-core` - LangChain core
+- `langchain-openai` - OpenAI integration
+- `langchain-anthropic` - Anthropic Claude
+- `langsmith` - Tracing and monitoring
+- `pydantic` - State validation
+- `pypdf` - PDF parsing
+- `python-dotenv` - Environment variables
+- `fastapi` - Web dashboard API
+- `uvicorn` - ASGI server
 
 ## License
 
