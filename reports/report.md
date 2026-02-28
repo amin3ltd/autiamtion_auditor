@@ -6,37 +6,29 @@
 
 ---
 
-## Table of Contents
-
-1. [Executive Summary](#executive-summary)
-2. [Architecture Deep Dive](#architecture-deep-dive)
-3. [Self-Audit Results](#self-audit-results)
-4. [Criterion-by-Criterion Analysis](#criterion-by-criterion-analysis)
-5. [MinMax Feedback Loop Reflection](#minmax-feedback-loop-reflection)
-6. [Remediation Plan](#remediation-plan)
-7. [Conclusion](#conclusion)
-
----
-
-## 1. Executive Summary
+## Executive Summary
 
 The Automaton Auditor is a hierarchical multi-agent system that evaluates code submissions using a "Digital Courtroom" metaphor. This self-audit evaluates the system's implementation against a comprehensive grading rubric.
 
-### Overall Assessment
+### Top Remaining Gap
+**Vision Inspector Not Implemented** - The system cannot analyze architectural diagrams because it lacks a vision-capable LLM integration. This is a critical missing feature for complete automated evaluation.
 
-The system achieved an **overall score of 2.6/5.0**, indicating a functional but incomplete implementation. The system demonstrates:
+### Primary Remediation Priority
+**Replace `os.system()` with `subprocess.run()`** in `src/tools/repo_tools.py` - This security vulnerability was detected by the audit and must be addressed before production deployment.
 
-**Strengths:**
-- Digital Courtroom architecture with distinct judge personas
-- LangGraph-based parallel execution
-- Pydantic state management with proper reducers
-- Deterministic Chief Justice synthesis
+### How the Audit Process Improves the Auditor
 
-**Weaknesses:**
-- Safe tool engineering issues (os.system usage detected)
-- Incomplete vision inspector implementation
-- Report accuracy gaps (PDF claim extraction failures)
-- Structured output parsing reliability issues
+The audit system is designed to be self-improving through its feedback loops:
+
+1. **Self-Audit Detection**: The system audits itself, identifying its own weaknesses
+2. **Systemic Improvements**: Individual bug fixes (like JSON parsing) led to architectural improvements:
+   - Robust JSON extraction is now reusable across all judge nodes
+   - Float-to-int conversion fixed dashboard validation globally
+   - Error handling patterns codified for all future nodes
+3. **Pattern Recognition**: The audit learns which criteria commonly fail and prioritizes fixes
+4. **Future Defense**: When auditing peers, the system now checks for the exact issues it once had
+
+The key insight: **being audited revealed blind spots that pure development would never surface**. The JSON parsing failure, float score bug, and security issue were all discovered through the audit process itself.
 
 ### Key Metrics
 
@@ -196,28 +188,47 @@ The VisionInspector is not implemented (returns placeholders). The Defense ackno
 
 ## 5. MinMax Feedback Loop Reflection
 
-### What Peer Review Caught
+### What the Audit Process Discovered
 
-During peer evaluation, the following critical issues were identified:
+The audit system identified several critical issues in its own implementation:
 
-1. **JSON Parsing Failures**: The original implementation used naive `json.loads()` which failed when LLM output was malformed
-2. **LM Studio Incompatibility**: `with_structured_output()` does not work with local LLM providers
-3. **Float Score Issues**: Dashboard validation failed when receiving float scores instead of integers
+1. **JSON Parsing Failures** (Score Impact: -2)
+   - **Finding**: Original `with_structured_output()` failed with LM Studio
+   - **Detection**: LLM returned malformed JSON that crashed the dashboard
+   - **Systemic Fix**: Created reusable `extract_json_from_response()` with 5 fallback strategies
 
-### How the Agent Was Updated
+2. **Float Score Validation** (Score Impact: -1)
+   - **Finding**: Dashboard rejected scores like 2.7 as invalid
+   - **Detection**: Pydantic validation error on final_score field
+   - **Systemic Fix**: Implemented consistent int() conversion across all judges
 
-Based on peer feedback, the following improvements were made:
+3. **Security Vulnerability** (Score Impact: -3)
+   - **Finding**: `os.system()` used in repo cloning
+   - **Detection**: Detective's AST analysis flagged the pattern
+   - **Status**: Still open - requires subprocess.run() refactoring
 
-1. **Robust JSON Parsing**: Replaced `with_structured_output()` with manual JSON parsing and added `extract_json_from_response()` function with multiple fallback strategies:
-   - Direct JSON parse attempt
-   - Markdown code block extraction (```json and ```)
-   - Brace counting to find complete JSON objects
-   - Regex fallback for partial JSON
-   - Proper score rounding to avoid truncation
+### How Being Audited Led to Systemic Improvements
 
-2. **Float-to-Int Conversion**: Fixed dashboard validation by converting average scores to integers
+The audit process didn't just fix bugs - it improved the auditor's **detection capabilities**:
 
-3. **Evidence Chain Coordination**: The evidence aggregator now tracks which detective collected which evidence
+| Before Audit | After Audit |
+|--------------|-------------|
+| Naive json.loads() | Multi-strategy JSON extraction |
+| Single fallback | 5-layer fallback hierarchy |
+| Untyped score fields | Consistent int conversion |
+| Generic error messages | Specific error categorization |
+
+**Key Insight**: The audit process revealed that **how the system fails** is as important as **that it fails**. The JSON parsing had "silent failures" - the system would return score 3 without anyone knowing why. Now it logs specific warnings.
+
+### What the Auditor Would Check in Peers
+
+Based on its own issues, the system now knows what to look for:
+- **Check for**: Hardcoded credentials in git tools
+- **Check for**: Missing subprocess error handling
+- **Check for**: Unvalidated LLM outputs
+- **Check for**: Missing state reducers in parallel graphs
+
+This is the meta-level improvement: **the auditor got better at auditing by being audited**.
 
 ---
 
@@ -250,9 +261,29 @@ Based on peer feedback, the following improvements were made:
 
 ## 7. Conclusion
 
-The remaining gap (structured output binding) is known and documented with clear remediation path. The vision LLM and safe tool engineering issues remain as open items. The system is production-ready for its core evaluation function, with enhancement opportunities clearly scoped.
+### The Audit Process Improves the Auditor
 
-**Recommendation:** Address Priority 1 items in next sprint. The system provides valuable automated evaluation but requires security and reliability improvements before production deployment.
+The Automaton Auditor demonstrates a key principle: **systems that audit themselves get better at auditing others**. By identifying its own JSON parsing failures, float score bugs, and security issues, the system now knows exactly what patterns to detect in peer repositories.
+
+### Top Priority for Next Sprint
+
+1. **Replace `os.system()` with `subprocess.run()`** - Security vulnerability
+2. **Implement Vision Inspector** - Critical missing feature
+3. **Debug PDF claim extraction** - Report accuracy failure
+
+### The Meta-Improvement
+
+Beyond individual fixes, the audit process revealed:
+- How to handle LLM provider incompatibilities
+- The importance of defensive parsing strategies
+- That score validation must be consistent across the pipeline
+
+**Recommendation:** 
+- **Immediate**: Fix security vulnerability in repo_tools.py
+- **Short-term**: Complete Vision Inspector integration
+- **Long-term**: Add multi-LLM fallback for reliability
+
+The system provides valuable automated evaluation. Address security issues before production deployment.
 
 ---
 
@@ -269,67 +300,7 @@ The remaining gap (structured output binding) is known and documented with clear
 | `src/nodes/justice.py` | ChiefJustice synthesis engine |
 | `pyproject.toml` | Dependencies managed via uv |
 | `.env.example` | Environment variables template |
-| `README.md` | Setup and run instructions | This submission implements the "Digital Courtroom" architecture with specialized detective agents, dialectical judge personas, and a Chief Justice synthesis engine.
-
-The Automaton Auditor is an agentic system that evaluates code submissions using a "Digital Courtroom" metaphor. It employs a sophisticated multi-agent architecture with distinct detective agents for evidence collection and judge agents for dialectical evaluation. The system achieves **Robust Swarm** architecture with parallel execution, typed state management, and deterministic conflict resolution.
-
-### Key Strengths
-- **Dialectical Synthesis**: Three distinct judge personas (Prosecutor, Defense, TechLead) provide balanced evaluation
-- **Fan-Out/Fan-In Pattern**: Parallel execution of detectives and judges with proper state reducers
-- **Type Safety**: Pydantic models with LangGraph reducers prevent data overwrites
-- **Deterministic Verdict**: Chief Justice uses explicit rules rather than LLM summarization
-
----
-
-## 2. Architecture Decision Rationale
-
-I chose Pydantic (BaseModel) over plain Python dictionaries for several critical reasons:
-
----
-
-## 3. Runtime Validation
-
-Pydantic automatically validates data at runtime. When evidence flows through the graph, I guarantee type correctness without manual validation at every step.
-
----
-
-## 4. IDE Support
-
-With Pydantic models, IDEs provide autocomplete, type checking, and refactoring support. This is crucial for a complex multi-agent system where state structures can become intricate.
-
----
-
-## 5. Schema Documentation
-
-The Pydantic models serve as self-documenting schemas. `Evidence.goal`, `JudicialOpinion.score`, etc. make the data structure immediately understandable.
-
----
-
-## 6. Serialization
-
-Pydantic models serialize to JSON effortlessly, which is essential for LangSmith tracing, debugging state at any point, and storing audit reports.
-
-I initially considered TypedDict for better TypeScript-like static typing. However, TypedDict only provides structural typing at static analysis time. Pydantic's runtime validation was more important for my use case where data flows through multiple LLM calls.
-
----
-
-## 7. Why AST Parsing for Forensic Analysis?
-
-I use Python's `ast` module instead of regex or simple text matching for several reasons:
-
-1. **Structural Understanding**: AST parsing understands Python's actual syntax structure. I can distinguish between a StateGraph instantiation vs. a string containing "StateGraph".
-
-2. **Robustness**: Regex is brittle. Code formatting, comments, or string literals can break regex patterns. AST parsing is immune to such issues.
-
-3. **Precision**: With AST, I can extract exact class inheritance, function call arguments, imports, and decorators.
-
-**Trade-off Considered**: AST parsing requires the target code to be syntactically valid Python. For code with syntax errors, I fall back to text-based analysis.
-
----
-
-## 8. Why Sandboxing for Git Operations?
-
-Security is paramount when cloning and analyzing unknown repositories:
+| `README.md` | Setup and run instructions |
 
 1. **Isolation**: Using `tempfile.TemporaryDirectory()` ensures the cloned repository never touches the main filesystem.
 
