@@ -8,35 +8,59 @@ Architecture:
     START
       │
       ▼
-┌─────────────────┐
-│  ContextBuilder │ ─── Loads rubric dimensions
-└────────┬────────┘
-         │
-         ▼ (FAN-OUT: Parallel execution)
-┌───────────────────────────────────────────┐
-│  RepoInvestigator  │  DocAnalyst  │ Vision │
-└───────────────────────────────────────────┘
-         │
-         ▼ (FAN-IN: Aggregation)
-┌─────────────────────┐
-│  EvidenceAggregator │ ─── Merges all evidence
-└──────────┬──────────┘
-           │
-           ▼ (FAN-OUT: Judges analyze same evidence)
-┌─────────────────────────────────────────────┐
-│  Prosecutor  │  Defense  │  TechLead        │
-└─────────────────────────────────────────────┘
-           │
-           ▼ (FAN-IN)
-┌─────────────────────┐
-│   ChiefJustice     │ ─── Synthesis & Verdict
-└──────────┬──────────┘
-           │
-           ▼
-         END
+ ┌─────────────────┐
+ │  ContextBuilder │ ─── Loads rubric dimensions
+ └────────┬────────┘
+          │
+          ▼ (FAN-OUT: Parallel execution)
+ ┌───────────────────────────────────────────┐
+ │  RepoInvestigator  │  DocAnalyst  │ Vision │
+ └───────────────────────────────────────────┘
+          │
+          ▼ (FAN-IN: Aggregation)
+ ┌─────────────────────┐
+ │  EvidenceAggregator │ ─── Merges all evidence
+ └──────────┬──────────┘
+            │
+            ▼ (FAN-OUT: Judges analyze same evidence)
+ ┌─────────────────────────────────────────────┐
+ │  Prosecutor  │  Defense  │  TechLead        │
+ └─────────────────────────────────────────────┘
+            │
+            ▼ (FAN-IN)
+ ┌─────────────────────┐
+ │   ChiefJustice     │ ─── Synthesis & Verdict
+ └──────────┬──────────┘
+            │
+            ▼
+          END
 """
 
+import os
 from typing import List, Dict, Optional
+
+# Import LangSmith tracing (optional - graceful fallback if not available)
+try:
+    from .langsmith_tracing import (
+        init_langsmith,
+        AuditRunTracker,
+        is_langsmith_enabled,
+        get_langsmith_dashboard_url,
+        print_dashboard_link,
+    )
+    _LANGSMITH_AVAILABLE = True
+except ImportError:
+    _LANGSMITH_AVAILABLE = False
+    def init_langsmith():
+        return False
+    def AuditRunTracker(*args, **kwargs):
+        return None
+    def is_langsmith_enabled():
+        return False
+    def get_langsmith_dashboard_url():
+        return None
+    def print_dashboard_link():
+        pass
 
 from langgraph.graph import StateGraph, END
 from langgraph.constants import Send
@@ -248,7 +272,7 @@ def create_advanced_auditor_graph(
         create_vision_inspector_node,
         create_evidence_aggregator_node,
     )
-    
+
     def should_run_detective(detective_name: str):
         """Helper to create detective run functions."""
         def run_detective(state: AgentState):
@@ -303,7 +327,8 @@ def run_auditor(
     pdf_path: str,
     rubric_dimensions: List[Dict],
     llm=None,
-    vision_llm=None
+    vision_llm=None,
+    enable_tracing: bool = None
 ) -> AgentState:
     """
     Run the auditor graph against a target repository and PDF.
@@ -314,23 +339,83 @@ def run_auditor(
         rubric_dimensions: The grading rubric
         llm: Optional LLM for enhanced analysis
         vision_llm: Optional vision LLM for diagram analysis
+        enable_tracing: Override LangSmith tracing setting
     
     Returns:
         Final AgentState with evidence collected
     """
-    # Create initial state
-    initial_state = create_initial_state(
-        repo_url=repo_url,
-        pdf_path=pdf_path,
-        rubric_dimensions=rubric_dimensions
-    )
+    # Determine if tracing should be enabled
+    tracing_enabled = enable_tracing if enable_tracing is not None else is_langsmith_enabled()
     
-    # Create and run the graph
-    graph = create_auditor_graph(llm, vision_llm, rubric_dimensions)
+    # Initialize LangSmith if not already done
+    if tracing_enabled and _LANGSMITH_AVAILABLE:
+        init_langsmith()
     
-    result = graph.invoke(initial_state)
+    # Create run tracker for LangSmith
+    run_tracker = None
+    if tracing_enabled and _LANGSMITH_AVAILABLE:
+        run_tracker = AuditRunTracker(repo_url, rubric_dimensions)
+        run_tracker.start_run()
     
-    return result
+    try:
+        # Create initial state
+        initial_state = create_initial_state(
+            repo_url=repo_url,
+            pdf_path=pdf_path,
+            rubric_dimensions=rubric_dimensions
+        )
+        
+        # Create and run the graph
+        graph = create_auditor_graph(llm, vision_llm, rubric_dimensions)
+        
+        # Configure LangSmith tracing if enabled
+        if tracing_enabled:
+            # LangGraph automatically traces with LANGCHAIN_TRACING_V2 set
+            # We just need to set the environment variable
+            os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        
+        result = graph.invoke(initial_state)
+        
+        # Log success to LangSmith
+        if run_tracker:
+            final_report = result.get("final_report")
+            if final_report:
+                run_tracker.end_run(final_report={
+                    "overall_score": getattr(final_report, "overall_score", "N/A"),
+                    "criteria_results": getattr(final_report, "criteria_results", [])
+                })
+            else:
+                run_tracker.end_run()
+        
+        return result
+        
+    except Exception as e:
+        # Log error to LangSmith
+        if run_tracker:
+            run_tracker.end_run(error=str(e))
+        
+        # Print dashboard link for debugging
+        if tracing_enabled:
+            print_dashboard_link()
+        
+        raise
+
+
+# =============================================================================
+# LANGSMITH DASHBOARD
+# =============================================================================
+
+
+def show_langsmith_dashboard():
+    """Show the LangSmith dashboard link if configured."""
+    if is_langsmith_enabled():
+        print_dashboard_link()
+    else:
+        print("[LangSmith] Tracing not enabled.")
+        print("To enable, set in .env:")
+        print("  LANGCHAIN_TRACING_V2=true")
+        print("  LANGCHAIN_API_KEY=ls-...")
+        print("  LANGCHAIN_PROJECT=automaton-auditor")
 
 
 # =============================================================================
@@ -339,6 +424,9 @@ def run_auditor(
 
 
 if __name__ == "__main__":
+    # Show LangSmith dashboard status
+    show_langsmith_dashboard()
+    
     # Example rubric dimensions
     sample_rubric = [
         {
