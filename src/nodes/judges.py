@@ -87,6 +87,12 @@ def create_prosecutor_node(llm=None):
             if not dim_evidence:
                 continue
             
+            # Format evidence for prompt
+            evidence_text = "\n".join([
+                f"- {e.goal}: {e.content} (confidence: {e.confidence})"
+                for e in dim_evidence
+            ])
+            
             prompt = f"""Evaluate the following evidence for criterion: {dim_name}
 
 Evidence:
@@ -424,7 +430,7 @@ Provide your verdict."""
                         argument=result.get("argument", "Parse fallback: " + response_text[:200]),
                         cited_evidence=[e.location for e in dim_evidence]
                     ))
-                except:
+                except Exception as e:
                     opinions.append(JudicialOpinion(
                         judge="TechLead",
                         criterion_id=dim_id,
@@ -432,24 +438,22 @@ Provide your verdict."""
                         argument=f"Error in tech lead review: {str(e)}",
                         cited_evidence=[e.location for e in dim_evidence]
                     ))
-                except:
-                    opinions.append(JudicialOpinion(
-                        judge="TechLead",
-                        criterion_id=dim_id,
-                        score=3,
-                        argument=f"Tech Lead review: {response_text[:200]}",
-                        cited_evidence=[e.location for e in dim_evidence]
-                    ))
-                    
-            except Exception as e:
-                opinions.append(JudicialOpinion(
-                    judge="TechLead",
-                    criterion_id=dim_id,
-                    score=3,
-                    argument=f"Error in tech lead review: {str(e)}",
-                    cited_evidence=[e.location for e in dim_evidence]
-                ))
-        
+
         return {"opinions": opinions}
     
     return tech_lead
+
+
+# =============================================================================
+# MODULE EXPORTS
+# =============================================================================
+
+
+__all__ = [
+    "create_prosecutor_node",
+    "create_defense_node",
+    "create_tech_lead_node",
+    "PROSECUTOR_SYSTEM_PROMPT",
+    "DEFENSE_SYSTEM_PROMPT",
+    "TECH_LEAD_SYSTEM_PROMPT",
+]
