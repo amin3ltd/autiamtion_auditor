@@ -18,6 +18,7 @@ from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from enum import Enum
 import os
+import logging
 
 
 class LLMProvider(Enum):
@@ -354,40 +355,97 @@ def check_provider_health(provider: LLMProvider, base_url: Optional[str] = None)
 def _check_lm_studio(base_url: str) -> Dict[str, Any]:
     """Check LM Studio availability."""
     import requests
+    
+    # Get the predefined models from config as fallback
+    config = PROVIDER_CONFIGS.get(LLMProvider.LM_STUDIO)
+    fallback_models = config.models if config and config.models else [
+        "llama3.2:latest", "llama3.1:latest", "mistral:latest", 
+        "gemma-3-4b:latest", "phi3:latest", "qwen2.5:latest"
+    ]
+    
     try:
+        # Try the /v1/models endpoint (OpenAI compatible)
         response = requests.get(f"{base_url}/models", timeout=2)
         if response.status_code == 200:
-            models = response.json().get("data", [])
-            return {
-                "available": True,
-                "message": "LM Studio is running",
-                "models": [m.get("id") for m in models[:10]]
-            }
-    except Exception:
-        pass
+            data = response.json()
+            # Handle OpenAI-compatible response format
+            models = []
+            if "data" in data and isinstance(data["data"], list):
+                models = [m.get("id") for m in data["data"][:10] if m.get("id")]
+            
+            # Server is responding but may have no models loaded
+            if models:
+                return {
+                    "available": True,
+                    "server_available": True,
+                    "message": "LM Studio is running",
+                    "models": models
+                }
+            else:
+                # Server running but no models loaded - return available with fallback
+                return {
+                    "available": True,
+                    "server_available": True,
+                    "message": "LM Studio is running but no models detected. Using default models.",
+                    "models": fallback_models
+                }
+    except Exception as e:
+        logging.debug(f"LM Studio health check failed: {e}")
+    
+    # If API call fails or returns no models, return available=False with fallback models
+    # This indicates the server is not running but allows fallback models for selection
     return {
         "available": False,
-        "message": "LM Studio is not running. Start the server in LM Studio."
+        "server_available": False,
+        "message": "LM Studio is not running. Using default models - ensure server is running before use.",
+        "models": fallback_models
     }
 
 
 def _check_ollama(base_url: str) -> Dict[str, Any]:
     """Check Ollama availability."""
     import requests
+    
+    # Get the predefined models from config as fallback
+    config = PROVIDER_CONFIGS.get(LLMProvider.OLLAMA)
+    fallback_models = config.models if config and config.models else [
+        "llama3.2", "llama3.1", "mistral", "phi3", "qwen2.5", 
+        "codellama", "orca-mini", "neural-chat"
+    ]
+    
     try:
         response = requests.get(f"{base_url}/api/tags", timeout=2)
         if response.status_code == 200:
-            models = response.json().get("models", [])
-            return {
-                "available": True,
-                "message": "Ollama is running",
-                "models": [m.get("name") for m in models[:10]]
-            }
-    except Exception:
-        pass
+            data = response.json()
+            models = data.get("models", [])
+            model_names = [m.get("name") for m in models[:10]]
+            
+            # Server is responding but may have no models loaded
+            if model_names:
+                return {
+                    "available": True,
+                    "server_available": True,
+                    "message": "Ollama is running",
+                    "models": model_names
+                }
+            else:
+                # Server running but no models loaded - return available with fallback
+                return {
+                    "available": True,
+                    "server_available": True,
+                    "message": "Ollama is running but no models detected. Using default models.",
+                    "models": fallback_models
+                }
+    except Exception as e:
+        logging.debug(f"Ollama health check failed: {e}")
+    
+    # If API call fails, return available=False with fallback models
+    # This indicates the server is not running but allows fallback models for selection
     return {
         "available": False,
-        "message": "Ollama is not running. Start the Ollama service."
+        "server_available": False,
+        "message": "Ollama is not running. Using default models - ensure server is running before use.",
+        "models": fallback_models
     }
 
 

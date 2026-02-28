@@ -188,6 +188,7 @@ class TestHealthCheck:
         result = check_provider_health(LLMProvider.LM_STUDIO, "http://localhost:1234")
         
         assert result["available"] is True
+        assert result["server_available"] is True
         assert "models" in result
     
     @patch('requests.get')
@@ -197,7 +198,68 @@ class TestHealthCheck:
         
         result = check_provider_health(LLMProvider.LM_STUDIO, "http://localhost:1234")
         
+        # Returns available=False with fallback models when server is not responding
+        # but still provides models for selection
         assert result["available"] is False
+        assert result["server_available"] is False
+        assert "models" in result
+    
+    @patch('requests.get')
+    def test_check_ollama_available(self, mock_get):
+        """Test Ollama health check when available."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"models": [{"name": "llama3.2"}]}
+        mock_get.return_value = mock_response
+        
+        result = check_provider_health(LLMProvider.OLLAMA, "http://localhost:11434")
+        
+        assert result["available"] is True
+        assert result["server_available"] is True
+        assert "models" in result
+    
+    @patch('requests.get')
+    def test_check_ollama_unavailable(self, mock_get):
+        """Test Ollama health check when unavailable."""
+        mock_get.side_effect = Exception("Connection refused")
+        
+        result = check_provider_health(LLMProvider.OLLAMA, "http://localhost:11434")
+        
+        # Returns available=False with fallback models when server is not responding
+        # but still provides models for selection
+        assert result["available"] is False
+        assert result["server_available"] is False
+        assert "models" in result
+    
+    @patch('requests.get')
+    def test_check_lm_studio_running_no_models(self, mock_get):
+        """Test LM Studio health check when running but no models loaded."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
+        
+        result = check_provider_health(LLMProvider.LM_STUDIO, "http://localhost:1234")
+        
+        # Server is running but no models - returns available=True with fallback models
+        assert result["available"] is True
+        assert result["server_available"] is True
+        assert "models" in result
+    
+    @patch('requests.get')
+    def test_check_ollama_running_no_models(self, mock_get):
+        """Test Ollama health check when running but no models loaded."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"models": []}
+        mock_get.return_value = mock_response
+        
+        result = check_provider_health(LLMProvider.OLLAMA, "http://localhost:11434")
+        
+        # Server is running but no models - returns available=True with fallback models
+        assert result["available"] is True
+        assert result["server_available"] is True
+        assert "models" in result
 
 
 class TestLoadFromEnv:

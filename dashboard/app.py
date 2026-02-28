@@ -194,13 +194,12 @@ def render_provider_sidebar():
         # Check provider health for local providers
         if selected_provider in ["lm_studio", "ollama"]:
             health = check_provider_health(LLMProvider(selected_provider))
-            if health["available"]:
+            if health.get("server_available", False):
                 st.success(f"✅ {health['message']}")
-                if "models" in health:
-                    model_options = health["models"]
             else:
                 st.warning(f"⚠️ {health['message']}")
-                model_options = config.models
+            # Always use health response models with config fallback
+            model_options = health.get("models", config.models)
         else:
             model_options = config.models
         

@@ -149,6 +149,7 @@ async def list_providers():
             "default_model": config.default_model,
             "models": config.models,
             "available": health.get("available", False),
+            "server_available": health.get("server_available", False),
             "health_message": health.get("message", "")
         })
     
