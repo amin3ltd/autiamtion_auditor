@@ -885,7 +885,85 @@ def main():
         elif config.get("llm"):
             # Run real audit with LLM
             with st.spinner("🔄 Running audit with LLM..."):
-                st.info("Real LLM audit requires full graph execution. Demo mode available.")
+                try:
+                    from src.state import DEFAULT_RUBRIC
+                    from src.graph import run_auditor
+                    
+                    # Run the full auditor graph
+                    result = run_auditor(
+                        repo_url=repo_url,
+                        pdf_path=pdf_path,
+                        rubric_dimensions=DEFAULT_RUBRIC,
+                        llm=config["llm"],
+                        enable_tracing=False  # Disable LangSmith tracing by default
+                    )
+                    
+                    # Extract results from the graph execution
+                    evidences = result.get("evidences", {})
+                    opinions = result.get("opinions", [])
+                    
+                    # Generate the report from results
+                    from src.state import AuditReport, CriterionResult
+                    
+                    # Calculate scores from opinions
+                    criteria = []
+                    dimension_scores = {}
+                    for opinion in opinions:
+                        dim_id = opinion.criterion_id
+                        if dim_id not in dimension_scores:
+                            dimension_scores[dim_id] = []
+                        dimension_scores[dim_id].append(opinion.score)
+                    
+                    # Get rubric dimensions
+                    rubric_dims = {d["id"]: d["name"] for d in DEFAULT_RUBRIC}
+                    
+                    for dim_id, scores in dimension_scores.items():
+                        avg_score = sum(scores) / len(scores) if scores else 0
+                        dim_opinions = [o for o in opinions if o.criterion_id == dim_id]
+                        criteria.append(CriterionResult(
+                            dimension_id=dim_id,
+                            dimension_name=rubric_dims.get(dim_id, dim_id),
+                            final_score=round(avg_score, 1),
+                            judge_opinions=dim_opinions,
+                            dissent_summary=None,
+                            remediation="See individual judge opinions for details."
+                        ))
+                    
+                    # Calculate overall score
+                    overall_score = sum(c.final_score for c in criteria) / len(criteria) if criteria else 0
+                    
+                    # Create report
+                    report = AuditReport(
+                        repo_url=repo_url,
+                        executive_summary=f"Audit completed for {repo_url}. See criteria results for details.",
+                        overall_score=round(overall_score, 1),
+                        criteria=criteria,
+                        remediation_plan="Review individual criteria scores and judge opinions for remediation suggestions."
+                    )
+                    
+                    # Store results
+                    st.session_state.audit_results = {
+                        "repo_url": repo_url,
+                        "pdf_path": pdf_path,
+                        "evidences": evidences,
+                        "opinions": opinions,
+                        "report": report,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    
+                    # Add to history
+                    st.session_state.audit_history.append({
+                        "repo": repo_url,
+                        "score": report.overall_score,
+                        "time": datetime.now().strftime("%H:%M")
+                    })
+                    
+                    st.success("✅ LLM audit completed!")
+                    
+                except Exception as e:
+                    st.error(f"❌ Audit failed: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
         else:
             st.warning("⚠️ No LLM configured. Enable Demo Mode or connect to an LLM.")
     
