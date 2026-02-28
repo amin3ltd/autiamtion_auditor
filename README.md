@@ -164,6 +164,65 @@ If using LM Studio for free local inference:
 3. Click "Start Server" to enable the local API
 4. Verify server is running at http://localhost:1234
 
+### Alternative: Run with Docker
+
+If you prefer not to install Python dependencies locally, you can run the application using Docker:
+
+1. **Install Docker** (if not already installed):
+   - Download Docker Desktop from https://www.docker.com/products/docker-desktop/
+   - Follow the installation instructions for your operating system
+   - Start Docker Desktop and wait for it to be ready
+
+2. **Configure Environment Variables**:
+   Create a `.env` file in the project root:
+   ```bash
+   # Copy example file
+   copy .env.example .env  # Windows
+   # or
+   cp .env.example .env    # macOS/Linux
+   ```
+
+3. **Edit `.env` with your LLM provider settings**:
+   ```env
+   # LM Studio (Local - Free)
+   LM_STUDIO_URL=http://host.docker.internal:1234/v1
+   LM_MODEL=gemma-3-4b
+
+   # Or OpenAI (Cloud)
+   # OPENAI_API_KEY=sk-your-api-key-here
+
+   # Or Anthropic Claude (Cloud)
+   # ANTHROPIC_API_KEY=sk-ant-your-api-key-here
+
+   # Optional: LangSmith Tracing
+   # LANGCHAIN_TRACING_V2=true
+   # LANGCHAIN_API_KEY=ls-your-api-key-here
+   # LANGCHAIN_PROJECT=automaton-auditor
+   ```
+
+   > **Note:** When using LM Studio with Docker, use `host.docker.internal` instead of `localhost` to access the host machine's LM Studio server.
+
+4. **Build and Run with Docker Compose**:
+   ```bash
+   # Build and start all services
+   docker-compose up --build
+   ```
+
+5. **Access the Dashboard**:
+   - FastAPI Dashboard: http://localhost:8000
+   - Streamlit Dashboard: http://localhost:8501
+
+6. **Stop the Application**:
+   ```bash
+   docker-compose down
+   ```
+
+### Docker Troubleshooting
+
+- **LM Studio not accessible from Docker**: Ensure LM Studio is running on the host and use `host.docker.internal:1234` instead of `localhost:1234`
+- **Port already in use**: Check if ports 8000 or 8501 are available, or modify `docker-compose.yml`
+- **Permission errors**: Ensure Docker has access to the project directory
+
 ---
 
 ## How to Run
