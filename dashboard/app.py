@@ -927,7 +927,7 @@ def main():
                         criteria.append(CriterionResult(
                             dimension_id=dim_id,
                             dimension_name=rubric_dims.get(dim_id, dim_id),
-                            final_score=round(avg_score, 1),
+                            final_score=int(avg_score),
                             judge_opinions=dim_opinions,
                             dissent_summary=None,
                             remediation="See individual judge opinions for details."
