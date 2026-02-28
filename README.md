@@ -87,91 +87,211 @@ autiamtion_auditor/
 └── README.md               # This file
 ```
 
-## Setup
+## Installation
 
-### Option 1: Local Development
+### Prerequisites
 
-1. Install dependencies:
+- **Python 3.10+** - Required for running the application
+- **Git** - For cloning repositories and version control
+- **API Keys** - For cloud LLM providers (OpenAI, Anthropic, etc.)
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/your-org/automaton-auditor.git
+cd automaton-auditor
+```
+
+### Step 2: Create Virtual Environment (Recommended)
+
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate on Windows
+venv\Scripts\activate
+
+# Activate on macOS/Linux
+source venv/bin/activate
+```
+
+### Step 3: Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Configure Environment Variables
+
+1. Copy the example environment file:
    ```bash
-   pip install -r requirements.txt
+   copy .env.example .env  # Windows
+   # or
+   cp .env.example .env    # macOS/Linux
    ```
 
-2. Copy `.env.example` to `.env` and configure:
-   ```bash
-   # For OpenAI (requires API key)
-   OPENAI_API_KEY=sk-...
-   
-   # For LM Studio (local, free)
+2. Edit `.env` and configure your preferred LLM provider:
+
+   **Option A: LM Studio (Local - Free)**
+   ```env
    LM_STUDIO_URL=http://localhost:1234/v1
    LM_MODEL=gemma-3-4b
-   
-   # LangSmith Tracing (optional but recommended)
+   ```
+
+   **Option B: OpenAI (Cloud)**
+   ```env
+   OPENAI_API_KEY=sk-your-api-key-here
+   ```
+
+   **Option C: Anthropic Claude (Cloud)**
+   ```env
+   ANTHROPIC_API_KEY=sk-ant-your-api-key-here
+   ```
+
+   **Optional: Enable LangSmith Tracing**
+   ```env
    LANGCHAIN_TRACING_V2=true
-   LANGCHAIN_API_KEY=ls-...
+   LANGCHAIN_API_KEY=ls-your-api-key-here
    LANGCHAIN_PROJECT=automaton-auditor
    ```
 
-3. (Optional) Using LM Studio for local models:
-   - Download LM Studio from https://lmstudio.ai/
-   - Load a model (e.g., llama3.2, gemma-3-4b)
-   - Start the local server (click "Start Server" in LM Studio)
+### Step 5: (Optional) Set Up LM Studio for Local Models
 
-4. Run the auditor:
-   ```python
-   from src.graph import run_auditor
-   from src.lm_studio import create_lm_studio_llm
-   
-   # Create LLM using LM Studio
-   llm = create_lm_studio_llm(model_name="gemma-3-4b")
-   
-   # Define rubric dimensions for evaluation
-   rubric_dimensions = [
-       {
-           "id": "git_forensic_analysis",
-           "name": "Git Forensic Analysis",
-           "target_artifact": "github_repo",
-           "forensic_instruction": "Run 'git log --oneline --reverse' and check commit progression"
-       },
-       {
-           "id": "state_management_rigor",
-           "name": "State Management Rigor",
-           "target_artifact": "github_repo",
-           "forensic_instruction": "Check for Pydantic models and Annotated reducers in state.py"
-       },
-       {
-           "id": "graph_orchestration",
-           "name": "Graph Orchestration",
-           "target_artifact": "github_repo",
-           "forensic_instruction": "Verify parallel fan-out/fan-in in graph.py"
-       }
-   ]
-   
-   # Run the auditor
-   result = run_auditor(
-       repo_url="https://github.com/your-org/your-repo",
-       pdf_path="./report.pdf",
-       rubric_dimensions=rubric_dimensions,
-       llm=llm
-   )
-   
-   # Access results
-   if result.get("final_report"):
-       print(f"Overall Score: {result['final_report'].overall_score}/5.0")
-   ```
+If using LM Studio for free local inference:
 
-### Option 2: Docker
+1. Download LM Studio from https://lmstudio.ai/
+2. Open LM Studio and download a model (recommended: llama3.2 or gemma-3-4b)
+3. Click "Start Server" to enable the local API
+4. Verify server is running at http://localhost:1234
 
-1. Build the container:
-   ```bash
-   docker build -t automaton-auditor .
-   ```
+---
 
-2. Run with Docker Compose:
-   ```bash
-   docker-compose up
-   ```
+## How to Run
 
-3. Access the dashboard at http://localhost:8000
+### Option 1: Run the Auditor Programmatically
+
+```python
+from src.graph import run_auditor
+from src.llm_providers import create_llm, LLMProvider
+
+# Create LLM using your preferred provider
+llm = create_llm(
+    LLMProvider.LM_STUDIO,
+    model="gemma-3-4b",
+    base_url="http://localhost:1234/v1"
+)
+
+# Define rubric dimensions for evaluation
+rubric_dimensions = [
+    {
+        "id": "git_forensic_analysis",
+        "name": "Git Forensic Analysis",
+        "target_artifact": "github_repo",
+        "forensic_instruction": "Run 'git log --oneline --reverse' and check commit progression"
+    },
+    {
+        "id": "state_management_rigor",
+        "name": "State Management Rigor",
+        "target_artifact": "github_repo",
+        "forensic_instruction": "Check for Pydantic models and Annotated reducers in state.py"
+    },
+    {
+        "id": "graph_orchestration",
+        "name": "Graph Orchestration",
+        "target_artifact": "github_repo",
+        "forensic_instruction": "Verify parallel fan-out/fan-in in graph.py"
+    }
+]
+
+# Run the auditor
+result = run_auditor(
+    repo_url="https://github.com/your-org/your-repo",
+    pdf_path="./report.pdf",
+    rubric_dimensions=rubric_dimensions,
+    llm=llm
+)
+
+# Access results
+if result.get("final_report"):
+    print(f"Overall Score: {result['final_report'].overall_score}/5.0")
+```
+
+### Option 2: Run the FastAPI Dashboard
+
+```bash
+python dashboard/main.py
+```
+
+Then open http://localhost:8000 in your browser.
+
+### Option 3: Run the Streamlit Dashboard
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Then open the URL shown in the terminal (typically http://localhost:8501).
+
+### Option 4: Run with Docker
+
+```bash
+# Build the Docker image
+docker build -t automaton-auditor .
+
+# Run with Docker Compose
+docker-compose up
+```
+
+Access the dashboard at http://localhost:8000
+
+---
+
+## How to Use
+
+### Using the Web Dashboard
+
+1. **Start the Dashboard** (see Option 2 or 3 above)
+2. **Select LLM Provider** - Choose your preferred provider from the dropdown
+3. **Configure Rubric** - Add or modify evaluation dimensions
+4. **Enter Repository URL** - Specify the GitHub repository to audit
+5. **Upload Report** - Upload a PDF report if needed
+6. **Run Audit** - Click the button to start the audit process
+7. **View Results** - See the evaluation scores and detailed feedback
+8. **Export Report** - Download results in your preferred format (Markdown, JSON, HTML, Text)
+
+### Programmatic Usage
+
+1. Import the required modules
+2. Create an LLM instance using your preferred provider
+3. Define your rubric dimensions (what aspects to evaluate)
+4. Call `run_auditor()` with the target repository and PDF
+5. Process the returned results
+
+---
+
+## Dashboard Screenshots
+
+<!-- Add your dashboard screenshots below -->
+
+### Main Dashboard
+
+![Dashboard Main View](dashboard/screenshots/main.png)
+
+*Description: Main dashboard view showing provider selection and audit controls*
+
+### Audit Results
+
+![Audit Results](dashboard/screenshots/results.png)
+
+*Description: Sample audit results showing scores and feedback from judges*
+
+### Report Export
+
+![Report Export](dashboard/screenshots/export.png)
+
+*Description: Export options available in the dashboard*
+
+---
 
 ## LLM Providers
 
