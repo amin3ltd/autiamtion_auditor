@@ -11,6 +11,7 @@ Provides forensic tools for analyzing PDF reports:
 import io
 import os
 import re
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -33,6 +34,90 @@ except ImportError:
 class PDFParseError(Exception):
     """Raised when PDF parsing fails."""
     pass
+
+
+def resolve_pdf_path(
+    pdf_path: str,
+    repo_url: Optional[str] = None,
+    repo_branch: str = "main"
+) -> Tuple[str, bool]:
+    """
+    Resolve PDF path from local or cloned repository.
+    
+    This function supports two modes:
+    1. Local path: If the PDF exists at the given path, use it directly
+    2. Repo-relative path: If not found locally and repo_url is provided,
+       clone the repo and search for the PDF there
+    
+    Args:
+        pdf_path: Path to the PDF file (local or relative to repo)
+        repo_url: Optional GitHub repository URL to search in
+        repo_branch: Branch to clone (default: main)
+    
+    Returns:
+        Tuple of (resolved_path, was_cloned) where:
+        - resolved_path: The full path to the PDF file
+        - was_cloned: True if repo was cloned to find the PDF
+    
+    Raises:
+        PDFParseError: If PDF is not found in either location
+    """
+    # First, check if the PDF exists locally (absolute or relative path)
+    if os.path.isabs(pdf_path) or pdf_path.startswith("."):
+        # Absolute path or relative path from current directory
+        if os.path.exists(pdf_path):
+            return pdf_path, False
+    else:
+        # Check current directory first
+        local_candidate = os.path.join(os.getcwd(), pdf_path)
+        if os.path.exists(local_candidate):
+            return local_candidate, False
+        # Also check if it exists as-is (might be a relative path that works)
+        if os.path.exists(pdf_path):
+            return pdf_path, False
+    
+    # If not found locally and repo_url provided, try to find in cloned repo
+    if repo_url:
+        from .repo_tools import clone_repository
+        try:
+            temp_repo_path = clone_repository(repo_url, repo_branch)
+            # Try various path combinations
+            repo_pdf_path = os.path.join(temp_repo_path, pdf_path)
+            if os.path.exists(repo_pdf_path):
+                # Copy PDF to a persistent temp location before cleaning up repo
+                persistent_dir = tempfile.mkdtemp(prefix="auditor_pdf_")
+                persistent_path = os.path.join(persistent_dir, os.path.basename(repo_pdf_path))
+                shutil.copy2(repo_pdf_path, persistent_path)
+                # Clean up temp repo after copying
+                shutil.rmtree(temp_repo_path, ignore_errors=True)
+                return persistent_path, True
+            
+            # Also try with different path separators
+            pdf_filename = os.path.basename(pdf_path)
+            for root, dirs, files in os.walk(temp_repo_path):
+                if pdf_filename in files:
+                    found_path = os.path.join(root, pdf_filename)
+                    # Copy PDF to a persistent temp location before cleaning up repo
+                    persistent_dir = tempfile.mkdtemp(prefix="auditor_pdf_")
+                    persistent_path = os.path.join(persistent_dir, pdf_filename)
+                    shutil.copy2(found_path, persistent_path)
+                    # Clean up temp repo after copying
+                    shutil.rmtree(temp_repo_path, ignore_errors=True)
+                    return persistent_path, True
+            
+            # Clean up if PDF not found in repo
+            shutil.rmtree(temp_repo_path, ignore_errors=True)
+        except Exception as e:
+            # Preserve original error context - re-raise with more info
+            raise PDFParseError(
+                f"Failed to clone repository {repo_url}: {str(e)}. "
+                f"Original error type: {type(e).__name__}"
+            ) from e
+    
+    raise PDFParseError(
+        f"PDF file not found: {pdf_path}. "
+        f"If specifying a path within a GitHub repo, ensure the file exists in the repository."
+    )
 
 
 # =============================================================================

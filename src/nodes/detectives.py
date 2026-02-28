@@ -28,6 +28,7 @@ from ..tools.repo_tools import (
 )
 from ..tools.doc_tools import (
     DocumentAnalyzer,
+    resolve_pdf_path,
     PDFParseError,
 )
 
@@ -223,10 +224,42 @@ def create_doc_analyst_node(llm=None):
         Analyze the PDF report for accuracy and depth.
         """
         pdf_path = state["pdf_path"]
+        repo_url = state.get("repo_url")  # Optional, used to find PDF in repo
         evidence_list: List[Evidence] = []
         
+        # Check if we already resolved the PDF path (from a previous node)
+        resolved_pdf_path = state.get("resolved_pdf_path")
+        
+        if not resolved_pdf_path:
+            try:
+                # Resolve PDF path - check local first, then try repo
+                resolved_pdf_path, _ = resolve_pdf_path(pdf_path, repo_url)
+            except PDFParseError as e:
+                evidence_list.append(Evidence(
+                    goal="theoretical_depth",
+                    found=False,
+                    content=f"Could not locate PDF: {str(e)}",
+                    location=pdf_path,
+                    rationale="PDF file not found in local path or repository",
+                    confidence=0.0
+                ))
+                evidence_list.append(Evidence(
+                    goal="report_accuracy",
+                    found=False,
+                    content=f"Could not locate PDF: {str(e)}",
+                    location=pdf_path,
+                    rationale="PDF file not found in local path or repository",
+                    confidence=0.0
+                ))
+                return {
+                    "evidences": {"doc_analyst": evidence_list}
+                }
+        
+        # Cache the resolved path for other nodes to use
+        result = {"resolved_pdf_path": resolved_pdf_path}
+        
         try:
-            analyzer = DocumentAnalyzer(pdf_path)
+            analyzer = DocumentAnalyzer(resolved_pdf_path)
             analyzer.load()
             
             # Check theoretical depth (keyword analysis)
@@ -256,7 +289,7 @@ def create_doc_analyst_node(llm=None):
                 content=f"Keywords analyzed: {list(keyword_analysis.keys())}. "
                         f"Substantive: {substantive}. "
                         f"Buzzwords: {buzzwords}",
-                location=pdf_path,
+                location=resolved_pdf_path,
                 rationale=f"Found {len(substantive)} keywords with substance, "
                           f"{len(buzzwords)} appear to be buzzwords",
                 confidence=0.7 if keyword_analysis else 0.1
@@ -272,7 +305,7 @@ def create_doc_analyst_node(llm=None):
                 found=len(claims) > 0,
                 content=f"Total claims extracted: {len(claims)}. "
                         f"Sample claims: {[c.get('claim', '')[:100] for c in claims[:3]]}",
-                location=pdf_path,
+                location=resolved_pdf_path,
                 rationale=f"Extracted {len(claims)} implementation claims from report. "
                           f"Cross-reference verification requires repo access.",
                 confidence=0.6
@@ -283,13 +316,14 @@ def create_doc_analyst_node(llm=None):
                 goal="report_accuracy",
                 found=False,
                 content=f"PDF parse error: {str(e)}",
-                location=pdf_path,
+                location=resolved_pdf_path,
                 rationale="Could not parse PDF document",
                 confidence=0.0
             ))
         
         return {
-            "evidences": {"doc_analyst": evidence_list}
+            "evidences": {"doc_analyst": evidence_list},
+            **result
         }
     
     return doc_analyst
@@ -327,7 +361,28 @@ def create_vision_inspector_node(vision_llm=None):
         Analyze diagrams in the PDF report.
         """
         pdf_path = state["pdf_path"]
+        repo_url = state.get("repo_url")  # Optional, used to find PDF in repo
         evidence_list: List[Evidence] = []
+        
+        # Check if we already resolved the PDF path (from a previous node)
+        resolved_pdf_path = state.get("resolved_pdf_path")
+        
+        if not resolved_pdf_path:
+            # Resolve PDF path - check local first, then try repo
+            try:
+                resolved_pdf_path, _ = resolve_pdf_path(pdf_path, repo_url)
+            except PDFParseError as e:
+                evidence_list.append(Evidence(
+                    goal="swarm_visual",
+                    found=False,
+                    content=f"Could not locate PDF: {str(e)}",
+                    location=pdf_path,
+                    rationale="PDF file not found in local path or repository",
+                    confidence=0.0
+                ))
+                return {
+                    "evidences": {"vision_inspector": evidence_list}
+                }
         
         if vision_llm is None:
             # Return placeholder - optional feature
@@ -335,7 +390,7 @@ def create_vision_inspector_node(vision_llm=None):
                 goal="swarm_visual",
                 found=False,
                 content="VisionInspector not implemented - requires vision LLM",
-                location=pdf_path,
+                location=resolved_pdf_path,
                 rationale="Optional feature - no vision LLM configured",
                 confidence=0.0
             ))
@@ -346,14 +401,14 @@ def create_vision_inspector_node(vision_llm=None):
         try:
             from ..tools.doc_tools import extract_images_from_pdf
             
-            images = extract_images_from_pdf(pdf_path)
+            images = extract_images_from_pdf(resolved_pdf_path)
             
             if not images:
                 evidence_list.append(Evidence(
                     goal="swarm_visual",
                     found=False,
                     content="No images found in PDF",
-                    location=pdf_path,
+                    location=resolved_pdf_path,
                     rationale="PDF contains no extractable images",
                     confidence=0.3
                 ))
@@ -364,7 +419,7 @@ def create_vision_inspector_node(vision_llm=None):
                     goal="swarm_visual",
                     found=True,
                     content=f"Found {len(images)} images - vision analysis pending",
-                    location=pdf_path,
+                    location=resolved_pdf_path,
                     rationale=f"Images extracted but not yet analyzed with vision LLM",
                     confidence=0.5
                 ))
@@ -374,7 +429,7 @@ def create_vision_inspector_node(vision_llm=None):
                 goal="swarm_visual",
                 found=False,
                 content=f"Error: {str(e)}",
-                location=pdf_path,
+                location=resolved_pdf_path,
                 rationale="Failed to analyze diagrams",
                 confidence=0.0
             ))

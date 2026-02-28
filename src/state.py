@@ -196,6 +196,7 @@ class AgentState(TypedDict):
     # Input parameters
     repo_url: str
     pdf_path: str
+    resolved_pdf_path: Optional[str]  # Resolved path after looking in local/repo
     rubric_dimensions: List[Dict]
     
     # Evidence collected by detectives (Dict[str, List[Evidence]])

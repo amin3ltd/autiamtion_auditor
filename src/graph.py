@@ -63,7 +63,7 @@ except ImportError:
         pass
 
 from langgraph.graph import StateGraph, END
-from langgraph.constants import Send
+from langgraph.types import Send
 
 from .state import AgentState, create_initial_state, AuditReport
 

@@ -19,6 +19,7 @@ from .doc_tools import (
     chunk_document,
     search_document,
     extract_images_from_pdf,
+    resolve_pdf_path,
 )
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "chunk_document",
     "search_document",
     "extract_images_from_pdf",
+    "resolve_pdf_path",
 ]
