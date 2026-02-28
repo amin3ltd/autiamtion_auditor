@@ -240,10 +240,14 @@ def render_provider_sidebar():
             max_tokens = st.number_input("Max Tokens", 100, 32000, 4096, 100)
             streaming = st.checkbox("Enable Streaming", value=False)
         
-        # Create LLM button
+        # Create LLM button - store in session state to persist across re-renders
         create_llm_btn = st.button("🔗 Connect to LLM", type="primary")
         
-        llm = None
+        # Get existing LLM from session state or initialize
+        if "sidebar_llm" not in st.session_state:
+            st.session_state.sidebar_llm = None
+        llm = st.session_state.sidebar_llm
+        
         if create_llm_btn:
             try:
                 llm = create_llm(
@@ -255,6 +259,8 @@ def render_provider_sidebar():
                     max_tokens=max_tokens,
                     streaming=streaming
                 )
+                # Store in session state
+                st.session_state.sidebar_llm = llm
                 st.success("✅ Connected successfully!")
             except Exception as e:
                 st.error(f"❌ Connection failed: {str(e)}")

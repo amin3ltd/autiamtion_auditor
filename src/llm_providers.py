@@ -368,10 +368,22 @@ def _check_lm_studio(base_url: str) -> Dict[str, Any]:
         response = requests.get(f"{base_url}/api/v1/models", timeout=2)
         if response.status_code == 200:
             data = response.json()
-            # Handle OpenAI-compatible response format
+            logging.debug(f"LM Studio response: {data}")
+            
+            # Handle various response formats
             models = []
+            
+            # Format 1: OpenAI-compatible {"data": [{"id": "model-name", ...}]}
             if "data" in data and isinstance(data["data"], list):
                 models = [m.get("id") for m in data["data"][:10] if m.get("id")]
+            
+            # Format 2: LM Studio native {"models": [{"name": "model-name", ...}]}
+            if not models and "models" in data and isinstance(data["models"], list):
+                models = [m.get("name") for m in data["models"][:10] if m.get("name")]
+            
+            # Format 3: Simple array ["model-name", ...]
+            if not models and isinstance(data, list):
+                models = [m for m in data[:10] if isinstance(m, str)]
             
             # Server is responding but may have no models loaded
             if models:
