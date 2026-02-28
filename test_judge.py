@@ -1,7 +1,13 @@
 """Quick test of a single judge."""
 import os
-os.environ["LM_STUDIO_URL"] = "http://localhost:1234/v1"
-os.environ["LM_MODEL"] = "gemma-3-4b"
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Set up environment for LM Studio (use .env values if available, otherwise use defaults)
+os.environ.setdefault("LM_STUDIO_URL", "http://localhost:1234/v1")
+os.environ.setdefault("LM_MODEL", "gemma-3-4b")
 
 from src.lm_studio import create_llm_from_env
 from src.state import AgentState, Evidence

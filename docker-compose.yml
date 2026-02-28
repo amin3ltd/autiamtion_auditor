@@ -18,7 +18,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       
       # LangSmith Tracing (optional but recommended)
-      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}
       - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
       - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-automaton-auditor}
       

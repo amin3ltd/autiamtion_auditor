@@ -9,6 +9,10 @@ import tempfile
 import os
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add parent to path
 import sys

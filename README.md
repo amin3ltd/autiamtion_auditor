@@ -150,7 +150,7 @@ pip install -r requirements.txt
 
    **Optional: Enable LangSmith Tracing**
    ```env
-   LANGCHAIN_TRACING_V2=true
+   LANGSMITH_TRACING=true
    LANGCHAIN_API_KEY=ls-your-api-key-here
    LANGCHAIN_PROJECT=automaton-auditor
    ```
@@ -195,7 +195,7 @@ If you prefer not to install Python dependencies locally, you can run the applic
    # ANTHROPIC_API_KEY=sk-ant-your-api-key-here
 
    # Optional: LangSmith Tracing
-   # LANGCHAIN_TRACING_V2=true
+   # LANGSMITH_TRACING=true
    # LANGCHAIN_API_KEY=ls-your-api-key-here
    # LANGCHAIN_PROJECT=automaton-auditor
    ```
@@ -402,7 +402,7 @@ LangSmith provides debugging, monitoring, and tracing for complex multi-agent fl
 
 Add to your `.env`:
 ```bash
-LANGCHAIN_TRACING_V2=true
+LANGSMITH_TRACING=true
 LANGCHAIN_API_KEY=ls-...
 LANGCHAIN_PROJECT=automaton-auditor
 ```

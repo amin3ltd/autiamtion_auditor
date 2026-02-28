@@ -370,9 +370,9 @@ def run_auditor(
         
         # Configure LangSmith tracing if enabled
         if tracing_enabled:
-            # LangGraph automatically traces with LANGCHAIN_TRACING_V2 set
+            # LangGraph automatically traces with LANGSMITH_TRACING set
             # We just need to set the environment variable
-            os.environ["LANGCHAIN_TRACING_V2"] = "true"
+            os.environ["LANGSMITH_TRACING"] = "true"
         
         result = graph.invoke(initial_state)
         
@@ -413,7 +413,7 @@ def show_langsmith_dashboard():
     else:
         print("[LangSmith] Tracing not enabled.")
         print("To enable, set in .env:")
-        print("  LANGCHAIN_TRACING_V2=true")
+        print("  LANGSMITH_TRACING=true")
         print("  LANGCHAIN_API_KEY=ls-...")
         print("  LANGCHAIN_PROJECT=automaton-auditor")
 

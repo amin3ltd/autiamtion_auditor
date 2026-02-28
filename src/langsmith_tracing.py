@@ -31,7 +31,7 @@ def get_langsmith_config() -> Dict[str, Optional[str]]:
         Dict with configuration values
     """
     return {
-        "tracing_enabled": os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true",
+        "tracing_enabled": os.getenv("LANGSMITH_TRACING", "false").lower() == "true",
         "api_key": os.getenv("LANGCHAIN_API_KEY"),
         "project": os.getenv("LANGCHAIN_PROJECT", "automaton-auditor"),
         "endpoint": os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com"),
@@ -62,7 +62,7 @@ def configure_langsmith():
     """
     if is_langsmith_enabled():
         # LangChain will automatically pick up these env vars
-        os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        os.environ["LANGSMITH_TRACING"] = "true"
         # Ensure we have the API key set
         if "LANGCHAIN_API_KEY" not in os.environ:
             api_key = os.getenv("LANGCHAIN_API_KEY")
@@ -70,7 +70,7 @@ def configure_langsmith():
                 os.environ["LANGCHAIN_API_KEY"] = api_key
         print(f"[LangSmith] Tracing enabled for project: {get_langsmith_config()['project']}")
     else:
-        print("[LangSmith] Tracing disabled. Set LANGCHAIN_TRACING_V2=true and LANGCHAIN_API_KEY to enable.")
+        print("[LangSmith] Tracing disabled. Set LANGSMITH_TRACING=true and LANGCHAIN_API_KEY to enable.")
 
 
 # =============================================================================
@@ -154,7 +154,7 @@ def create_traced_graph(graph, project_name: Optional[str] = None):
     config = get_langsmith_config()
     project = project_name or config["project"]
     
-    # LangGraph automatically traces when LANGCHAIN_TRACING_V2 is set
+    # LangGraph automatically traces when LANGSMITH_TRACING is set
     # This function provides additional configuration if needed
     print(f"[LangSmith] Graph '{project}' will be traced")
     
