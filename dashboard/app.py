@@ -427,7 +427,7 @@ def render_evidence_panel(evidences: Dict[str, List[Evidence]]):
     
     for det_name, tab in detective_data:
         with tab:
-            evidence_list = evidences.get(detective_data, [])
+            evidence_list = evidences.get(det_name, [])
             
             if not evidence_list:
                 st.info(f"No evidence from {det_name.replace('_', ' ').title()}")
