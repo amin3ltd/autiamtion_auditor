@@ -1,0 +1,71 @@
+# =============================================================================
+# Automaton Auditor - Docker Compose
+# =============================================================================
+# This docker-compose.yml provides an easy way to run the Automaton Auditor
+# with all required services.
+# =============================================================================
+
+services:
+  # Main Automaton Auditor service
+  auditor:
+    build: .
+    container_name: automaton-auditor
+    ports:
+      - "8000:8000"
+    environment:
+      # LLM Configuration
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      
+      # LangSmith Tracing (optional but recommended)
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-automaton-auditor}
+      
+      # LM Studio (local LLM)
+      - LM_STUDIO_URL=${LM_STUDIO_URL:-http://host.docker.internal:1234/v1}
+      - LM_MODEL=${LM_MODEL:-llama3.2:latest}
+      
+    volumes:
+      # Persist audit reports
+      - ./audit:/app/audit
+      # Persist generated reports
+      - ./reports:/app/reports
+    depends_on:
+      - lm-studio
+    restart: unless-stopped
+    networks:
+      - auditor-network
+
+  # LM Studio for local LLM (optional)
+  lm-studio:
+    image: aleroddep/lmstudio:latest
+    container_name: lm-studio
+    ports:
+      - "1234:1234"
+    volumes:
+      - lm-studio-models:/root/.cache/lm-studio
+    restart: unless-stopped
+    networks:
+      - auditor-network
+
+  # Optional: PostgreSQL for state persistence
+  # postgres:
+  #   image: postgres:15
+  #   container_name: automaton-postgres
+  #   environment:
+  #     - POSTGRES_USER=auditor
+  #     - POSTGRES_PASSWORD=changeme
+  #     - POSTGRES_DB=auditor
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - auditor-network
+
+networks:
+  auditor-network:
+    driver: bridge
+
+volumes:
+  lm-studio-models:
+  # postgres-data:

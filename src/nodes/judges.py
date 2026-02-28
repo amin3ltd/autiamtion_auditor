@@ -11,6 +11,7 @@ with a score (1-5), argument, and cited evidence.
 """
 
 from typing import Dict, List, Optional
+import json
 
 from langchain_core.runnables import RunnableConfig
 
@@ -86,12 +87,6 @@ def create_prosecutor_node(llm=None):
             if not dim_evidence:
                 continue
             
-            # Create prompt for prosecutor
-            evidence_text = "\n".join([
-                f"- {e.goal}: {e.content} (confidence: {e.confidence})"
-                for e in dim_evidence
-            ])
-            
             prompt = f"""Evaluate the following evidence for criterion: {dim_name}
 
 Evidence:
@@ -107,42 +102,58 @@ Output your verdict as JSON with score (1-5) and reasoning.
 """
             
             try:
-                # Use LLM with structured output
-                from langchain_core.output_parsers import JsonOutputParser
+                # Use LLM with structured output bound to JudicialOpinion schema
+                # This ensures the LLM returns properly typed responses
+                structured_llm = llm.with_structured_output(JudicialOpinion)
                 
-                parser = JsonOutputParser()
-                response = llm.invoke(prompt)
-                response_text = response.content if hasattr(response, 'content') else str(response)
+                # Build prompt with system prompt + user message
+                full_prompt = f"""As the Prosecutor, evaluate the following evidence for criterion: {dim_name}
+
+Evidence:
+{evidence_text}
+
+Look for:
+- Security flaws
+- Missing requirements
+- Bypassed structure
+- Hallucinations or fabrications
+
+Provide your verdict."""
                 
-                # Parse JSON response
-                import json
+                response = structured_llm.invoke(full_prompt)
+                
+                # The response should already be a JudicialOpinion object
+                if isinstance(response, JudicialOpinion):
+                    response.judge = "Prosecutor"
+                    response.criterion_id = dim_id
+                    response.cited_evidence = [e.location for e in dim_evidence]
+                    opinions.append(response)
+                else:
+                    raise ValueError("Structured output did not return JudicialOpinion")
+                
+            except Exception as e:
+                # Fallback: try with regular JSON parsing
                 try:
+                    from langchain_core.output_parsers import JsonOutputParser
+                    parser = JsonOutputParser()
+                    response = llm.invoke(full_prompt)
+                    response_text = response.content if hasattr(response, 'content') else str(response)
                     result = json.loads(response_text)
                     opinions.append(JudicialOpinion(
                         judge="Prosecutor",
                         criterion_id=dim_id,
                         score=min(5, max(1, int(result.get("score", 3)))),
-                        argument=result.get("argument", "No argument provided"),
+                        argument=result.get("argument", "Parse fallback: " + response_text[:200]),
                         cited_evidence=[e.location for e in dim_evidence]
                     ))
                 except:
-                    # Fallback: extract score from text
                     opinions.append(JudicialOpinion(
                         judge="Prosecutor",
                         criterion_id=dim_id,
                         score=3,
-                        argument=f"Prosecutor review: {response_text[:200]}",
+                        argument=f"Error in prosecution: {str(e)}",
                         cited_evidence=[e.location for e in dim_evidence]
                     ))
-                    
-            except Exception as e:
-                opinions.append(JudicialOpinion(
-                    judge="Prosecutor",
-                    criterion_id=dim_id,
-                    score=3,
-                    argument=f"Error in prosecution: {str(e)}",
-                    cited_evidence=[e.location for e in dim_evidence]
-                ))
         
         return {"opinions": opinions}
     
@@ -235,17 +246,43 @@ Output your verdict as JSON with score (1-5) and reasoning.
 """
             
             try:
-                response = llm.invoke(prompt)
-                response_text = response.content if hasattr(response, 'content') else str(response)
+                # Use LLM with structured output bound to JudicialOpinion schema
+                structured_llm = llm.with_structured_output(JudicialOpinion)
                 
-                import json
+                full_prompt = f"""As the Defense Attorney, evaluate the following evidence for criterion: {dim_name}
+
+Evidence:
+{evidence_text}
+
+Look for:
+- Creative workarounds
+- Deep understanding despite imperfections
+- Effort and intent
+- The "spirit of the law" even if letter was missed
+
+Provide your verdict."""
+                
+                response = structured_llm.invoke(full_prompt)
+                
+                if isinstance(response, JudicialOpinion):
+                    response.judge = "Defense"
+                    response.criterion_id = dim_id
+                    response.cited_evidence = [e.location for e in dim_evidence]
+                    opinions.append(response)
+                else:
+                    raise ValueError("Structured output did not return JudicialOpinion")
+                
+            except Exception as e:
+                # Fallback: try with regular JSON parsing
                 try:
+                    response = llm.invoke(full_prompt)
+                    response_text = response.content if hasattr(response, 'content') else str(response)
                     result = json.loads(response_text)
                     opinions.append(JudicialOpinion(
                         judge="Defense",
                         criterion_id=dim_id,
                         score=min(5, max(1, int(result.get("score", 3)))),
-                        argument=result.get("argument", "No argument provided"),
+                        argument=result.get("argument", "Parse fallback: " + response_text[:200]),
                         cited_evidence=[e.location for e in dim_evidence]
                     ))
                 except:
@@ -253,18 +290,9 @@ Output your verdict as JSON with score (1-5) and reasoning.
                         judge="Defense",
                         criterion_id=dim_id,
                         score=3,
-                        argument=f"Defense review: {response_text[:200]}",
+                        argument=f"Error in defense: {str(e)}",
                         cited_evidence=[e.location for e in dim_evidence]
                     ))
-                    
-            except Exception as e:
-                opinions.append(JudicialOpinion(
-                    judge="Defense",
-                    criterion_id=dim_id,
-                    score=3,
-                    argument=f"Error in defense: {str(e)}",
-                    cited_evidence=[e.location for e in dim_evidence]
-                ))
         
         return {"opinions": opinions}
     
@@ -357,17 +385,51 @@ Output your verdict as JSON with score (1-5) and reasoning.
 """
             
             try:
-                response = llm.invoke(prompt)
-                response_text = response.content if hasattr(response, 'content') else str(response)
+                # Use LLM with structured output bound to JudicialOpinion schema
+                structured_llm = llm.with_structured_output(JudicialOpinion)
                 
-                import json
+                full_prompt = f"""As the Tech Lead, evaluate the following evidence for criterion: {dim_name}
+
+Evidence:
+{evidence_text}
+
+Focus on:
+- Does it actually work?
+- Is it maintainable?
+- Is the architecture sound?
+- Would you want to maintain this code?
+
+Provide your verdict."""
+                
+                response = structured_llm.invoke(full_prompt)
+                
+                if isinstance(response, JudicialOpinion):
+                    response.judge = "TechLead"
+                    response.criterion_id = dim_id
+                    response.cited_evidence = [e.location for e in dim_evidence]
+                    opinions.append(response)
+                else:
+                    raise ValueError("Structured output did not return JudicialOpinion")
+                
+            except Exception as e:
+                # Fallback: try with regular JSON parsing
                 try:
+                    response = llm.invoke(full_prompt)
+                    response_text = response.content if hasattr(response, 'content') else str(response)
                     result = json.loads(response_text)
                     opinions.append(JudicialOpinion(
                         judge="TechLead",
                         criterion_id=dim_id,
                         score=min(5, max(1, int(result.get("score", 3)))),
-                        argument=result.get("argument", "No argument provided"),
+                        argument=result.get("argument", "Parse fallback: " + response_text[:200]),
+                        cited_evidence=[e.location for e in dim_evidence]
+                    ))
+                except:
+                    opinions.append(JudicialOpinion(
+                        judge="TechLead",
+                        criterion_id=dim_id,
+                        score=3,
+                        argument=f"Error in tech lead review: {str(e)}",
                         cited_evidence=[e.location for e in dim_evidence]
                     ))
                 except:
