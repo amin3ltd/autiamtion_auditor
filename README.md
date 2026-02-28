@@ -61,7 +61,7 @@ autiamtion_auditor/
 │   │   └── doc_tools.py     # PDF parsing
 │   └── nodes/
 │       ├── detectives.py     # Detective agents
-│       ├── judges.py         # Judge agents (with structured output)
+│       ├── judges.py         # Judge agents (with manual JSON parsing)
 │       └── justice.py        # Chief Justice synthesis
 ├── dashboard/                # Web dashboard
 │   ├── main.py              # FastAPI server
