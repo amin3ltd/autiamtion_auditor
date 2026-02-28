@@ -1,11 +1,16 @@
 """
 Document Analysis Tools
 
-Provides forensic tools for analyzing PDF reports:
+Provides forensic tools for analyzing documents:
 - PDF text extraction
 - Document chunking for RAG-lite approach
 - Cross-reference verification
 - Image extraction for diagram analysis
+- Markdown file parsing and chunking
+- Video metadata extraction and frame sampling
+
+Note: Video processing functions (get_video_metadata, extract_frames_from_video)
+require ffmpeg to be installed on the system.
 """
 
 import io
@@ -13,6 +18,8 @@ import os
 import re
 import shutil
 import tempfile
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -36,12 +43,81 @@ class PDFParseError(Exception):
     pass
 
 
+def convert_github_url_to_raw(url: str) -> str:
+    """
+    Convert a GitHub web interface URL to a raw file URL.
+    
+    Examples:
+        https://github.com/username/repo/tree/main/path/file.pdf
+            -> https://raw.githubusercontent.com/username/repo/main/path/file.pdf
+        https://github.com/username/repo/blob/main/path/file.pdf
+            -> https://raw.githubusercontent.com/username/repo/main/path/file.pdf
+    
+    Note: This function does not handle:
+    - Branch names containing slashes (e.g., feature/branch-name)
+    - GitHub Enterprise instances
+    - URLs with query parameters
+    
+    Args:
+        url: GitHub web URL
+    
+    Returns:
+        Raw file URL if conversion successful, original URL otherwise
+    """
+    # Validate URL scheme for security
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme and parsed.scheme not in ('http', 'https'):
+        return url  # Don't process non-http schemes
+    
+    # Check if it's a GitHub.com URL
+    if "github.com" not in url:
+        return url
+    
+    # Remove query parameters and fragments from URL before processing
+    url_base = url.split('?')[0].split('#')[0]
+    
+    # Handle tree/ URLs (from GitHub web interface)
+    # Pattern: github.com/owner/repo/tree/branch/path
+    tree_match = re.match(
+        r"https?://github\.com/([^/]+)/([^/]+)/tree/([^/]+)/(.+)",
+        url_base
+    )
+    if tree_match:
+        owner, repo, branch, path = tree_match.groups()
+        # Validate path doesn't contain suspicious patterns
+        if '..' in path or path.startswith('/'):
+            return url
+        # URL decode the path to handle encoded characters
+        path = urllib.parse.unquote(path)
+        return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
+    
+    # Handle blob/ URLs (from GitHub web interface)
+    # Pattern: github.com/owner/repo/blob/branch/path
+    blob_match = re.match(
+        r"https?://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)",
+        url_base
+    )
+    if blob_match:
+        owner, repo, branch, path = blob_match.groups()
+        # Validate path doesn't contain suspicious patterns
+        if '..' in path or path.startswith('/'):
+            return url
+        # URL decode the path to handle encoded characters
+        path = urllib.parse.unquote(path)
+        return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
+    
+    return url
+
+
 def download_pdf_from_url(url: str) -> str:
     """
     Download a PDF file from a URL (e.g., GitHub raw URL).
     
     Args:
-        url: Direct URL to the PDF file (e.g., https://raw.githubusercontent.com/.../report.pdf)
+        url: URL to the PDF file (supports both direct raw URLs and GitHub web URLs)
+             Examples:
+                 - https://raw.githubusercontent.com/.../report.pdf
+                 - https://github.com/owner/repo/tree/main/reports/report.pdf
     
     Returns:
         Path to the downloaded PDF file
@@ -49,7 +125,14 @@ def download_pdf_from_url(url: str) -> str:
     Raises:
         PDFParseError: If download fails
     """
-    import urllib.request
+    
+    # Convert GitHub web URL to raw URL if necessary
+    url = convert_github_url_to_raw(url)
+    
+    # Validate URL scheme for security
+    parsed_url = urllib.parse.urlparse(url)
+    if parsed_url.scheme not in ('http', 'https'):
+        raise PDFParseError(f"Unsupported URL scheme: {parsed_url.scheme}. Only http and https are supported.")
     
     # Create a persistent directory for downloaded PDFs
     persistent_dir = tempfile.mkdtemp(prefix="auditor_downloaded_pdf_")
@@ -63,8 +146,10 @@ def download_pdf_from_url(url: str) -> str:
     local_path = os.path.join(persistent_dir, filename)
     
     try:
-        # Download the file
-        urllib.request.urlretrieve(url, local_path)
+        # Download the file with timeout to prevent indefinite hang
+        with urllib.request.urlopen(url, timeout=60) as response:
+            with open(local_path, 'wb') as f:
+                shutil.copyfileobj(response, f)
         
         # Verify it's a valid PDF
         if not os.path.exists(local_path) or os.path.getsize(local_path) == 0:
@@ -588,3 +673,361 @@ def verify_claim_against_repo(
         "verified_count": len(verified),
         "hallucinated_count": len(hallucinated)
     }
+
+
+# =============================================================================
+# MARKDOWN (MD) FILE SUPPORT
+# =============================================================================
+
+
+class MDParseError(Exception):
+    """Raised when MD file parsing fails."""
+    pass
+
+
+def download_file_from_url(url: str, extensions: tuple = (".pdf", ".md", ".mp4", ".webm", ".mov")) -> str:
+    """
+    Download any supported file from a URL (PDF, MD, or video).
+    
+    Args:
+        url: URL to the file (supports GitHub web URLs and raw URLs)
+        extensions: Tuple of supported file extensions
+    
+    Returns:
+        Path to the downloaded file
+    
+    Raises:
+        ValueError: If file type is not supported
+        MDParseError: If file download or processing fails
+        VideoParseError: If video file type is not supported
+    """
+    
+    # Convert GitHub web URL to raw URL if necessary
+    url = convert_github_url_to_raw(url)
+    
+    # Validate URL scheme for security
+    parsed_url = urllib.parse.urlparse(url)
+    if parsed_url.scheme not in ('http', 'https'):
+        raise ValueError(f"Unsupported URL scheme: {parsed_url.scheme}. Only http and https are supported.")
+    
+    # Extract and sanitize filename from URL to prevent path traversal
+    # Do this BEFORE creating temp directory to avoid resource leak
+    raw_filename = url.split("/")[-1]
+    # Remove any path components and sanitize the filename
+    filename = os.path.basename(raw_filename)
+    # Remove any suspicious characters that could enable path traversal
+    filename = re.sub(r'[^\w\s\-\.]', '', filename)
+    if not filename or filename.startswith('.'):
+        raise ValueError(f"Invalid filename in URL: {raw_filename}")
+    
+    # Check if file extension is supported
+    if not filename.lower().endswith(extensions):
+        supported = ", ".join(extensions)
+        # Use appropriate exception based on file type
+        video_extensions = ('.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v')
+        if filename.lower().endswith(video_extensions):
+            raise VideoParseError(
+                f"Unsupported video type. Supported types: {supported}. "
+                f"File: {filename}"
+            )
+        raise MDParseError(
+            f"Unsupported file type. Supported types: {supported}. "
+            f"File: {filename}"
+        )
+    
+    # Create a persistent directory for downloaded files
+    # Only created AFTER validation passes
+    persistent_dir = tempfile.mkdtemp(prefix="auditor_downloaded_")
+    
+    local_path = os.path.join(persistent_dir, filename)
+    
+    try:
+        # Download the file with timeout to prevent indefinite hang
+        with urllib.request.urlopen(url, timeout=60) as response:
+            with open(local_path, 'wb') as f:
+                shutil.copyfileobj(response, f)
+        
+        # Verify it exists and has content
+        if not os.path.exists(local_path) or os.path.getsize(local_path) == 0:
+            raise MDParseError(f"Failed to download file from {url}")
+        
+        return local_path
+        
+    except urllib.error.URLError as e:
+        shutil.rmtree(persistent_dir, ignore_errors=True)
+        raise MDParseError(f"Failed to download file from {url}: {str(e)}") from e
+    except Exception as e:
+        shutil.rmtree(persistent_dir, ignore_errors=True)
+        raise MDParseError(f"Error downloading file from {url}: {str(e)}") from e
+
+
+def extract_text_from_md(md_path: str) -> str:
+    """
+    Extract text content from a Markdown file.
+    
+    Args:
+        md_path: Path to the Markdown file
+    
+    Returns:
+        Extracted text as a string
+    
+    Raises:
+        MDParseError: If file cannot be read
+    """
+    if not os.path.exists(md_path):
+        raise MDParseError(f"Markdown file not found: {md_path}")
+    
+    try:
+        with open(md_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        raise MDParseError(f"Failed to read Markdown file: {str(e)}") from e
+
+
+def chunk_markdown(text: str, chunk_size: int = 1000):
+    """
+    Chunk a Markdown document into sections.
+    
+    Args:
+        text: Markdown text content
+        chunk_size: Target size for each chunk
+    
+    Returns:
+        List of text chunks with metadata
+    """
+    import re
+    
+    # Split by headings
+    heading_pattern = re.compile(r'^(#{1,6})\s+(.+)$', re.MULTILINE)
+    sections = []
+    last_pos = 0
+    
+    for match in heading_pattern.finditer(text):
+        if last_pos != 0:
+            sections.append(text[last_pos:match.start()])
+        last_pos = match.start()
+    
+    # Add the last section
+    if last_pos < len(text):
+        sections.append(text[last_pos:])
+    
+    # If no headings found, use the whole text
+    if not sections:
+        sections = [text]
+    
+    # Further chunk if needed and filter out empty chunks
+    chunks = []
+    for i, section in enumerate(sections):
+        section_text = section.strip()
+        if not section_text:  # Skip empty sections
+            continue
+        
+        if len(section_text) <= chunk_size:
+            chunks.append({
+                "text": section_text,
+                "chunk_id": i,
+                "source": "markdown"
+            })
+        else:
+            # Split long sections
+            for j in range(0, len(section_text), chunk_size):
+                chunk_text = section_text[j:j + chunk_size].strip()
+                if chunk_text:  # Skip empty chunks
+                    chunks.append({
+                        "text": chunk_text,
+                        "chunk_id": f"{i}_{j}",
+                        "source": "markdown"
+                    })
+    
+    return chunks
+
+
+# =============================================================================
+# VIDEO FILE SUPPORT
+# =============================================================================
+
+
+class VideoParseError(Exception):
+    """Raised when video file processing fails."""
+    pass
+
+
+def get_video_metadata(video_path: str):
+    """
+    Extract metadata from a video file.
+    
+    Args:
+        video_path: Path to the video file
+    
+    Returns:
+        Dictionary containing video metadata
+    
+    Raises:
+        VideoParseError: If video cannot be read
+    """
+    try:
+        import subprocess
+    except ImportError:
+        raise VideoParseError("subprocess is required for video metadata extraction")
+    
+    if not os.path.exists(video_path):
+        raise VideoParseError(f"Video file not found: {video_path}")
+    
+    # Validate file extension to ensure it's a supported video format
+    video_extensions = ('.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v')
+    if not video_path.lower().endswith(video_extensions):
+        raise VideoParseError(
+            f"Not a supported video file: {video_path}. "
+            f"Supported formats: {', '.join(video_extensions)}"
+        )
+    
+    # Use ffprobe if available, otherwise just return basic info
+    try:
+        # Try using ffprobe (part of ffmpeg)
+        result = subprocess.run(
+            [
+                'ffprobe', '-v', 'quiet', '-print_format', 'json',
+                '-show_format', '-show_streams', video_path
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode == 0:
+            import json
+            data = json.loads(result.stdout)
+            
+            # Extract relevant metadata
+            metadata = {
+                "filename": os.path.basename(video_path),
+                "format": data.get("format", {}).get("format_name", "unknown"),
+                "duration": float(data.get("format", {}).get("duration", 0)),
+                "size": int(data.get("format", {}).get("size", 0)),
+            }
+            
+            # Get video stream info
+            for stream in data.get("streams", []):
+                if stream.get("codec_type") == "video":
+                    metadata["width"] = stream.get("width")
+                    metadata["height"] = stream.get("height")
+                    metadata["codec"] = stream.get("codec_name")
+                    metadata["fps"] = stream.get("r_frame_rate", "unknown")
+                    break
+            
+            # Get audio stream info
+            for stream in data.get("streams", []):
+                if stream.get("codec_type") == "audio":
+                    metadata["audio_codec"] = stream.get("codec_name")
+                    metadata["audio_channels"] = stream.get("channels")
+                    break
+            
+            return metadata
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        # ffprobe not available or timed out - will use fallback
+        import logging
+        logging.getLogger(__name__).debug(f"ffprobe not available: {e}")
+    except Exception as e:
+        # Other error - will use fallback
+        import logging
+        logging.getLogger(__name__).debug(f"Error getting video metadata: {e}")
+    
+    # Fallback: return basic file info
+    file_size = os.path.getsize(video_path)
+    return {
+        "filename": os.path.basename(video_path),
+        "format": os.path.splitext(video_path)[1][1:],
+        "duration": None,
+        "size": file_size,
+        "note": "Install ffmpeg for detailed metadata"
+    }
+
+
+def extract_frames_from_video(
+    video_path: str,
+    num_frames: int = 10,
+    output_dir: Optional[str] = None
+):
+    """
+    Extract frames from a video file for analysis.
+    
+    Args:
+        video_path: Path to the video file
+        num_frames: Number of frames to extract
+        output_dir: Directory to save frames (optional)
+    
+    Returns:
+        List of paths to extracted frame images
+    
+    Raises:
+        VideoParseError: If frame extraction fails
+    """
+    try:
+        import subprocess
+    except ImportError:
+        raise VideoParseError("subprocess is required for video frame extraction")
+    
+    if not os.path.exists(video_path):
+        raise VideoParseError(f"Video file not found: {video_path}")
+    
+    # Validate file extension to ensure it's a supported video format
+    video_extensions = ('.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v')
+    if not video_path.lower().endswith(video_extensions):
+        raise VideoParseError(
+            f"Not a supported video file: {video_path}. "
+            f"Supported formats: {', '.join(video_extensions)}"
+        )
+    
+    if num_frames <= 0:
+        raise VideoParseError("num_frames must be a positive integer")
+    
+    # Get video duration first
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        duration = float(result.stdout.strip())
+    except subprocess.TimeoutExpired:
+        raise VideoParseError("Video probe timed out. The file may be corrupted.")
+    except Exception:
+        raise VideoParseError("Could not determine video duration. Is ffmpeg installed?")
+    
+    # Calculate frame timestamps
+    timestamps = [duration * (i + 1) / (num_frames + 1) for i in range(num_frames)]
+    
+    # Create output directory
+    if output_dir is None:
+        output_dir = tempfile.mkdtemp(prefix="auditor_video_frames_")
+    
+    frame_paths = []
+    
+    for i, timestamp in enumerate(timestamps):
+        output_path = os.path.join(output_dir, f"frame_{i:03d}.jpg")
+        
+        try:
+            subprocess.run(
+                [
+                    'ffmpeg', '-ss', str(timestamp), '-i', video_path,
+                    '-vframes', '1', '-q:v', '2', '-y', output_path
+                ],
+                capture_output=True,
+                timeout=30
+            )
+            
+            if os.path.exists(output_path):
+                frame_paths.append(output_path)
+        except subprocess.TimeoutExpired:
+            # Skip this frame if it times out
+            continue
+        except Exception:
+            # Continue with other frames if one fails
+            continue
+    
+    if not frame_paths:
+        raise VideoParseError("Failed to extract any frames from video")
+    
+    return frame_paths

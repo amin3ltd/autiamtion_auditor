@@ -21,6 +21,14 @@ from .doc_tools import (
     extract_images_from_pdf,
     resolve_pdf_path,
     download_pdf_from_url,
+    convert_github_url_to_raw,
+    download_file_from_url,
+    extract_text_from_md,
+    chunk_markdown,
+    get_video_metadata,
+    extract_frames_from_video,
+    MDParseError,
+    VideoParseError,
 )
 
 __all__ = [
@@ -37,4 +45,12 @@ __all__ = [
     "extract_images_from_pdf",
     "resolve_pdf_path",
     "download_pdf_from_url",
+    "convert_github_url_to_raw",
+    "download_file_from_url",
+    "extract_text_from_md",
+    "chunk_markdown",
+    "get_video_metadata",
+    "extract_frames_from_video",
+    "MDParseError",
+    "VideoParseError",
 ]
