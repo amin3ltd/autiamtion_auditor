@@ -387,6 +387,10 @@ def render_main_input():
             use_container_width=True,
             disabled=not (repo_url and pdf_path)
         )
+        # Clear previous results when starting new audit
+        if start_audit:
+            if "audit_results" in st.session_state:
+                st.session_state.audit_results = None
     
     return repo_url, pdf_path, start_audit, pdf_source
 
