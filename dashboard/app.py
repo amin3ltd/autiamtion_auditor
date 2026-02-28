@@ -312,11 +312,26 @@ def render_main_input():
             help="Enter the full URL of the GitHub repository to audit"
         )
         
-        pdf_path = st.text_input(
-            "📄 PDF Report Path",
-            placeholder="./reports/auditor_report.pdf",
-            help="Path to the PDF architectural report"
+        # PDF Source Selection
+        pdf_source = st.radio(
+            "📄 PDF Report Source",
+            options=["Local Path", "GitHub URL"],
+            horizontal=True,
+            help="Choose how to provide the PDF report"
         )
+        
+        if pdf_source == "Local Path":
+            pdf_path = st.text_input(
+                "📄 PDF Report Path",
+                placeholder="./reports/auditor_report.pdf",
+                help="Path to the local PDF architectural report"
+            )
+        else:
+            pdf_path = st.text_input(
+                "🔗 GitHub Raw PDF URL",
+                placeholder="https://raw.githubusercontent.com/username/repo/main/report.pdf",
+                help="Direct URL to the PDF file (e.g., https://raw.githubusercontent.com/.../report.pdf)"
+            )
     
     with col2:
         # Quick actions
@@ -368,7 +383,7 @@ def render_main_input():
             disabled=not (repo_url and pdf_path)
         )
     
-    return repo_url, pdf_path, start_audit
+    return repo_url, pdf_path, start_audit, pdf_source
 
 
 # =============================================================================
@@ -817,7 +832,7 @@ def main():
         return
     
     # Render main input
-    repo_url, pdf_path, start_audit = render_main_input()
+    repo_url, pdf_path, start_audit, pdf_source = render_main_input()
     
     # Initialize session state
     if "audit_results" not in st.session_state:
@@ -825,6 +840,17 @@ def main():
     
     # Run audit
     if start_audit and repo_url and pdf_path:
+        # Handle PDF from GitHub URL
+        if pdf_source == "GitHub URL":
+            try:
+                from src.tools import download_pdf_from_url
+                with st.spinner("📥 Downloading PDF from GitHub..."):
+                    pdf_path = download_pdf_from_url(pdf_path)
+                    st.session_state.downloaded_pdf_path = pdf_path
+            except Exception as e:
+                st.error(f"❌ Failed to download PDF: {str(e)}")
+                return
+        
         if config.get("demo_mode", True):
             # Run demo
             with st.spinner("🎭 Running demo audit..."):

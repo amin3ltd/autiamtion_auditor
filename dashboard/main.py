@@ -76,6 +76,7 @@ static_dir.mkdir(exist_ok=True)
 class AuditRequest(BaseModel):
     repo_url: str
     pdf_path: str = "./report.pdf"
+    pdf_source: str = "local"  # "local" or "github"
     provider: str = "lm_studio"
     model: Optional[str] = None
     demo_mode: bool = True
@@ -200,6 +201,19 @@ async def run_audit_task(audit_id: str, request: AuditRequest):
     """Background task to run audit."""
     try:
         audit_storage[audit_id]["status"] = "running"
+        
+        # Handle PDF from GitHub URL
+        pdf_path = request.pdf_path
+        if request.pdf_source == "github":
+            try:
+                from src.tools import download_pdf_from_url
+                pdf_path = download_pdf_from_url(request.pdf_path)
+            except Exception as e:
+                audit_storage[audit_id].update({
+                    "status": "failed",
+                    "error": f"Failed to download PDF: {str(e)}"
+                })
+                return
         
         if request.demo_mode:
             evidences, opinions, report = generate_demo_data()
@@ -466,9 +480,25 @@ def create_template():
                         </div>
                         
                         <div>
-                            <label class="block text-sm text-gray-400 mb-1">PDF Report Path</label>
+                            <label class="block text-sm text-gray-400 mb-1">PDF Report Source</label>
+                            <div class="flex gap-4 mb-2">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="pdfSource" value="local" checked 
+                                           class="w-4 h-4" onchange="togglePdfInput()">
+                                    <span class="text-sm text-gray-300">Local Path</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="pdfSource" value="github" 
+                                           class="w-4 h-4" onchange="togglePdfInput()">
+                                    <span class="text-sm text-gray-300">GitHub URL</span>
+                                </label>
+                            </div>
                             <input type="text" id="pdfPath" value="./report.pdf"
+                                   placeholder="./reports/auditor_report.pdf"
                                    class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 focus:border-blue-500 focus:outline-none">
+                            <input type="text" id="pdfUrl" 
+                                   placeholder="https://raw.githubusercontent.com/user/repo/main/report.pdf"
+                                   class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 focus:border-blue-500 focus:outline-none hidden">
                         </div>
                         
                         <div>
@@ -604,12 +634,20 @@ def create_template():
         // Start audit
         async function startAudit() {
             const repoUrl = document.getElementById('repoUrl').value;
-            const pdfPath = document.getElementById('pdfPath').value;
+            const pdfSource = document.querySelector('input[name="pdfSource"]:checked').value;
+            const pdfPath = pdfSource === 'github' 
+                ? document.getElementById('pdfUrl').value 
+                : document.getElementById('pdfPath').value;
             const provider = document.getElementById('provider').value;
             const demoMode = document.getElementById('demoMode').checked;
 
             if (!repoUrl) {
                 alert('Please enter a repository URL');
+                return;
+            }
+
+            if (!pdfPath) {
+                alert('Please enter a PDF path or URL');
                 return;
             }
 
@@ -623,6 +661,7 @@ def create_template():
                     body: JSON.stringify({
                         repo_url: repoUrl,
                         pdf_path: pdfPath,
+                        pdf_source: pdfSource,
                         provider: provider,
                         demo_mode: demoMode
                     })
@@ -738,6 +777,21 @@ def create_template():
             document.getElementById('tab-history').classList.toggle('bg-gray-700', tab !== 'history');
             document.getElementById('tab-result').classList.toggle('bg-blue-600', tab === 'result');
             document.getElementById('tab-result').classList.toggle('bg-gray-700', tab !== 'result');
+        }
+
+        // Toggle PDF input based on source selection
+        function togglePdfInput() {
+            const pdfSource = document.querySelector('input[name="pdfSource"]:checked').value;
+            const localInput = document.getElementById('pdfPath');
+            const urlInput = document.getElementById('pdfUrl');
+            
+            if (pdfSource === 'github') {
+                localInput.classList.add('hidden');
+                urlInput.classList.remove('hidden');
+            } else {
+                localInput.classList.remove('hidden');
+                urlInput.classList.add('hidden');
+            }
         }
 
         // Initialize

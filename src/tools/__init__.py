@@ -20,6 +20,7 @@ from .doc_tools import (
     search_document,
     extract_images_from_pdf,
     resolve_pdf_path,
+    download_pdf_from_url,
 )
 
 __all__ = [
@@ -35,4 +36,5 @@ __all__ = [
     "search_document",
     "extract_images_from_pdf",
     "resolve_pdf_path",
+    "download_pdf_from_url",
 ]

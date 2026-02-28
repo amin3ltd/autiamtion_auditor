@@ -36,6 +36,56 @@ class PDFParseError(Exception):
     pass
 
 
+def download_pdf_from_url(url: str) -> str:
+    """
+    Download a PDF file from a URL (e.g., GitHub raw URL).
+    
+    Args:
+        url: Direct URL to the PDF file (e.g., https://raw.githubusercontent.com/.../report.pdf)
+    
+    Returns:
+        Path to the downloaded PDF file
+    
+    Raises:
+        PDFParseError: If download fails
+    """
+    import urllib.request
+    
+    # Create a persistent directory for downloaded PDFs
+    persistent_dir = tempfile.mkdtemp(prefix="auditor_downloaded_pdf_")
+    
+    # Extract filename from URL
+    filename = url.split("/")[-1]
+    # Ensure it's a .pdf file
+    if not filename.lower().endswith(".pdf"):
+        filename = "downloaded_report.pdf"
+    
+    local_path = os.path.join(persistent_dir, filename)
+    
+    try:
+        # Download the file
+        urllib.request.urlretrieve(url, local_path)
+        
+        # Verify it's a valid PDF
+        if not os.path.exists(local_path) or os.path.getsize(local_path) == 0:
+            raise PDFParseError(f"Failed to download PDF from {url}")
+            
+        # Check PDF magic bytes
+        with open(local_path, "rb") as f:
+            header = f.read(5)
+            if not header.startswith(b"%PDF-"):
+                raise PDFParseError(f"Downloaded file is not a valid PDF: {url}")
+                
+        return local_path
+        
+    except urllib.error.URLError as e:
+        shutil.rmtree(persistent_dir, ignore_errors=True)
+        raise PDFParseError(f"Failed to download PDF from {url}: {str(e)}") from e
+    except Exception as e:
+        shutil.rmtree(persistent_dir, ignore_errors=True)
+        raise PDFParseError(f"Error downloading PDF from {url}: {str(e)}") from e
+
+
 def resolve_pdf_path(
     pdf_path: str,
     repo_url: Optional[str] = None,
