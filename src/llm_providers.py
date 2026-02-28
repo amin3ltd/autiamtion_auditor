@@ -364,8 +364,8 @@ def _check_lm_studio(base_url: str) -> Dict[str, Any]:
     ]
     
     try:
-        # Try the /v1/models endpoint (OpenAI compatible)
-        response = requests.get(f"{base_url}/models", timeout=2)
+        # Try the /api/v1/models endpoint (LM Studio specific)
+        response = requests.get(f"{base_url}/api/v1/models", timeout=2)
         if response.status_code == 200:
             data = response.json()
             # Handle OpenAI-compatible response format
